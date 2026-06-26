@@ -17,8 +17,13 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [city, setCity] = useState("");
+  const [role, setRole] = useState<"community_member" | "event_host">(
+    "community_member",
+  );
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(params.get("error"));
   const [notice, setNotice] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -33,12 +38,14 @@ function LoginForm() {
       const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: fullName } },
+        options: { data: { full_name: fullName, phone, city, role } },
       });
       setLoading(false);
       if (signUpError) return setError(signUpError.message);
       setNotice(
-        "Account created. If email confirmation is on, check your inbox — otherwise sign in below.",
+        role === "event_host"
+          ? "Account created as a Community Member. Your Host access is pending admin approval — you'll get host features once approved. Sign in below."
+          : "Account created. If email confirmation is on, check your inbox — otherwise sign in below.",
       );
       setMode("signin");
       return;
@@ -77,13 +84,68 @@ function LoginForm() {
         className="mt-8 space-y-4 rounded-2xl border border-line bg-surface p-6 shadow-soft"
       >
         {mode === "signup" && (
-          <Input
-            label="Full name"
-            value={fullName}
-            onChange={setFullName}
-            placeholder="Your name"
-            required
-          />
+          <>
+            <Input
+              label="Full name"
+              value={fullName}
+              onChange={setFullName}
+              placeholder="Your name"
+              required
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Phone"
+                type="tel"
+                value={phone}
+                onChange={setPhone}
+                placeholder="+91 …"
+              />
+              <Input
+                label="City"
+                value={city}
+                onChange={setCity}
+                placeholder="Chennai"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-fg">
+                I want to join as
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRole("community_member")}
+                  className={`rounded-xl border px-4 py-3 text-left transition-colors ${
+                    role === "community_member"
+                      ? "border-brand bg-brand/5"
+                      : "border-line bg-ink hover:border-brand/40"
+                  }`}
+                >
+                  <span className="block text-sm font-semibold text-fg">
+                    Community Member
+                  </span>
+                  <span className="mt-0.5 block text-xs text-muted">
+                    Discover & attend events
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRole("event_host")}
+                  className={`rounded-xl border px-4 py-3 text-left transition-colors ${
+                    role === "event_host"
+                      ? "border-brand bg-brand/5"
+                      : "border-line bg-ink hover:border-brand/40"
+                  }`}
+                >
+                  <span className="block text-sm font-semibold text-fg">Host</span>
+                  <span className="mt-0.5 block text-xs text-muted">
+                    Create & run events
+                  </span>
+                </button>
+              </div>
+            </div>
+          </>
         )}
         <Input
           label="Email"

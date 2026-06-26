@@ -39,6 +39,10 @@
   --radius-xl: 1.25rem;
 }
 
+/* Role-based theming (orange = member, green = host, blue = admin) is applied
+   as inline CSS variables on <body> in layout.tsx, so the brand utilities and
+   .glow-brand below recolour automatically per role. */
+
 html {
   scroll-behavior: smooth;
   background: var(--color-ink);
@@ -68,7 +72,7 @@ body {
 .glow-brand {
   background: radial-gradient(
     620px circle at 50% 0%,
-    rgba(255, 90, 31, 0.16),
+    color-mix(in srgb, var(--color-brand) 16%, transparent),
     transparent 62%
   );
 }
