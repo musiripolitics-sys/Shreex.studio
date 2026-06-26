@@ -86,8 +86,13 @@ const paths: Record<string, ReactNode> = {
       <path d="M12 12.2l.9 1.9 2 .3-1.45 1.4.34 2L12 16.9l-1.8.9.34-2L9.1 14.4l2-.3.9-1.9Z" />
     </>
   ),
-  // ── Utility ──
   check: <path d="M5 12.5l4.5 4.5L19 7.5" />,
+  "arrow-down-tray": (
+    <>
+      <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+      <path d="M7 11l5 5 5-5M12 4v12" />
+    </>
+  ),
 };
 
 export function Icon({

@@ -9,8 +9,11 @@ function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next") || "/admin";
+  const urlMode = params.get("mode");
 
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<"signin" | "signup">(
+    urlMode === "signup" ? "signup" : "signin"
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -52,6 +55,8 @@ function LoginForm() {
     router.refresh();
   };
 
+  const isAdminPath = next.startsWith("/admin");
+
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-md flex-col justify-center px-5 py-16">
       <h1 className="font-display text-3xl font-bold tracking-tight text-fg">
@@ -59,8 +64,12 @@ function LoginForm() {
       </h1>
       <p className="mt-2 text-sm text-muted">
         {mode === "signin"
-          ? "Access the Techxfluence admin console."
-          : "Sign up, then ask an admin to grant you access."}
+          ? isAdminPath
+            ? "Access the Techxfluence admin console."
+            : "Sign in to access your membership perks and events."
+          : isAdminPath
+            ? "Sign up, then ask an admin to grant you access."
+            : "Sign up to join our community and access events."}
       </p>
 
       <form
