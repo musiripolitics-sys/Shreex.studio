@@ -20,7 +20,6 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-qr-code": "^2.2.0",
-    "resend": "^6.16.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
