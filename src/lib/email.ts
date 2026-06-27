@@ -99,6 +99,75 @@ export async function sendRegistrationConfirmation(opts: {
   );
 }
 
+export async function sendWaitlistJoined(opts: {
+  to: string;
+  name: string;
+  eventTitle: string;
+}): Promise<void> {
+  await send(
+    opts.to,
+    `You're on the waitlist — ${opts.eventTitle}`,
+    shell(
+      "You're on the waitlist ⏳",
+      `Hi ${opts.name}, <strong>${opts.eventTitle}</strong> is currently full, but
+       we've added you to the waitlist. If a spot opens up, you'll be moved in
+       automatically and we'll email you straight away.`,
+    ),
+  );
+}
+
+export async function sendWaitlistPromoted(opts: {
+  to: string;
+  name: string;
+  eventTitle: string;
+  ticketCode: string;
+}): Promise<void> {
+  await send(
+    opts.to,
+    `A spot opened up — you're in for ${opts.eventTitle}! 🎉`,
+    shell(
+      "You're off the waitlist! 🎉",
+      `Hi ${opts.name}, good news — a spot opened up and you're now confirmed for
+       <strong>${opts.eventTitle}</strong>.
+       <p style="margin:18px 0 6px;font-size:13px;color:#8a897f;">Your ticket code</p>
+       <div style="display:inline-block;border:1px solid #e6e5df;border-radius:8px;padding:10px 18px;
+                   font-family:monospace;font-size:20px;font-weight:700;letter-spacing:3px;color:#0e0e0c;">
+         ${opts.ticketCode.toUpperCase()}
+       </div>
+       <p style="margin:18px 0 0;">Show this at the door. See you there!</p>`,
+    ),
+  );
+}
+
+export async function sendEventReminder(opts: {
+  to: string;
+  name: string;
+  eventTitle: string;
+  dateLabel?: string | null;
+  time?: string | null;
+  venue?: string | null;
+  ticketCode: string;
+}): Promise<void> {
+  const when = [opts.dateLabel, opts.time].filter(Boolean).join(" · ");
+  await send(
+    opts.to,
+    `Reminder: ${opts.eventTitle} is coming up`,
+    shell(
+      "See you soon! ⏰",
+      `Hi ${opts.name}, this is a friendly reminder that
+       <strong>${opts.eventTitle}</strong> is almost here.
+       ${when ? `<p style="margin:14px 0 0;"><strong>When:</strong> ${when}</p>` : ""}
+       ${opts.venue ? `<p style="margin:4px 0 0;"><strong>Where:</strong> ${opts.venue}</p>` : ""}
+       <p style="margin:18px 0 6px;font-size:13px;color:#8a897f;">Your ticket code</p>
+       <div style="display:inline-block;border:1px solid #e6e5df;border-radius:8px;padding:10px 18px;
+                   font-family:monospace;font-size:20px;font-weight:700;letter-spacing:3px;color:#0e0e0c;">
+         ${opts.ticketCode.toUpperCase()}
+       </div>
+       <p style="margin:18px 0 0;">Show this code at the door. Can't wait to see you!</p>`,
+    ),
+  );
+}
+
 export async function sendPaymentReceipt(opts: {
   to: string;
   name: string;
