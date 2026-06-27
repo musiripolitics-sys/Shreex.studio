@@ -8,10 +8,10 @@ import { createClient } from "@/lib/supabase/client";
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get("next") || "/admin";
+  const next = params.get("next") || "/";
   const urlMode = params.get("mode");
 
-  const [mode, setMode] = useState<"signin" | "signup">(
+  const [mode, setMode] = useState<"signin" | "signup" | "reset">(
     urlMode === "signup" ? "signup" : "signin"
   );
   const [email, setEmail] = useState("");
@@ -33,6 +33,21 @@ function LoginForm() {
     setNotice(null);
 
     const supabase = createClient();
+
+    if (mode === "reset") {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        email,
+        {
+          redirectTo: `${window.location.origin}/auth/confirm?next=/account/new-password`,
+        },
+      );
+      setLoading(false);
+      if (resetError) return setError(resetError.message);
+      setNotice(
+        "If an account exists for that email, we've sent a password reset link. Check your inbox.",
+      );
+      return;
+    }
 
     if (mode === "signup") {
       const { error: signUpError } = await supabase.auth.signUp({
@@ -67,16 +82,22 @@ function LoginForm() {
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-md flex-col justify-center px-5 py-16">
       <h1 className="font-display text-3xl font-bold tracking-tight text-fg">
-        {mode === "signin" ? "Sign in" : "Create account"}
+        {mode === "signin"
+          ? "Sign in"
+          : mode === "signup"
+            ? "Create account"
+            : "Reset password"}
       </h1>
       <p className="mt-2 text-sm text-muted">
-        {mode === "signin"
-          ? isAdminPath
-            ? "Access the Techxfluence admin console."
-            : "Sign in to access your membership perks and events."
-          : isAdminPath
-            ? "Sign up, then ask an admin to grant you access."
-            : "Sign up to join our community and access events."}
+        {mode === "reset"
+          ? "Enter your email and we'll send you a link to reset your password."
+          : mode === "signin"
+            ? isAdminPath
+              ? "Access the Techxfluence admin console."
+              : "Sign in to access your membership perks and events."
+            : isAdminPath
+              ? "Sign up, then ask an admin to grant you access."
+              : "Sign up to join our community and access events."}
       </p>
 
       <form
@@ -155,14 +176,30 @@ function LoginForm() {
           placeholder="you@email.com"
           required
         />
-        <Input
-          label="Password"
-          type="password"
-          value={password}
-          onChange={setPassword}
-          placeholder="••••••••"
-          required
-        />
+        {mode !== "reset" && (
+          <Input
+            label="Password"
+            type="password"
+            value={password}
+            onChange={setPassword}
+            placeholder="••••••••"
+            required
+          />
+        )}
+
+        {mode === "signin" && (
+          <button
+            type="button"
+            onClick={() => {
+              setMode("reset");
+              setError(null);
+              setNotice(null);
+            }}
+            className="block text-xs text-muted hover:text-fg"
+          >
+            Forgot password?
+          </button>
+        )}
 
         {error && (
           <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-500">
@@ -184,13 +221,17 @@ function LoginForm() {
             ? "Please wait…"
             : mode === "signin"
               ? "Sign in"
-              : "Create account"}
+              : mode === "signup"
+                ? "Create account"
+                : "Send reset link"}
         </button>
       </form>
 
       <button
         onClick={() => {
-          setMode(mode === "signin" ? "signup" : "signin");
+          setMode(
+            mode === "signin" ? "signup" : mode === "signup" ? "signin" : "signin",
+          );
           setError(null);
           setNotice(null);
         }}
@@ -198,7 +239,9 @@ function LoginForm() {
       >
         {mode === "signin"
           ? "Need an account? Sign up"
-          : "Already have an account? Sign in"}
+          : mode === "signup"
+            ? "Already have an account? Sign in"
+            : "← Back to sign in"}
       </button>
 
       <Link href="/" className="mt-3 text-center text-xs text-faint hover:text-muted">

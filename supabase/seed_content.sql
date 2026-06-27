@@ -18,13 +18,13 @@ cross join lateral (values
 insert into public.plan_benefits (plan_id, perk_text, sort_order)
 select p.id, perk, ord from public.membership_plans p
 cross join lateral (values
-  ('Everything in Free', 1), ('Free entry to most paid events', 2), ('Priority registration', 3),
+  ('Everything in Free', 1), ('25% off all paid event tickets', 2), ('Priority registration', 3),
   ('Member-only workshops', 4), ('Partner discounts & perks', 5), ('Exclusive learning resources', 6)
 ) as t(perk, ord) where p.tier = 'Pro';
 insert into public.plan_benefits (plan_id, perk_text, sort_order)
 select p.id, perk, ord from public.membership_plans p
 cross join lateral (values
-  ('Everything in Pro', 1), ('Leadership & speaking opportunities', 2), ('1:1 mentorship matching', 3),
+  ('Everything in Pro, plus 50% off all tickets', 1), ('Leadership & speaking opportunities', 2), ('1:1 mentorship matching', 3),
   ('Featured on the Leadership Board', 4), ('Early access to launches & sponsors', 5),
   ('Annual recognition & certificates', 6)
 ) as t(perk, ord) where p.tier = 'Elite';

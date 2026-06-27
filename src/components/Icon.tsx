@@ -93,6 +93,18 @@ const paths: Record<string, ReactNode> = {
       <path d="M7 11l5 5 5-5M12 4v12" />
     </>
   ),
+  calendar: (
+    <>
+      <rect x="3.5" y="5" width="17" height="16" rx="2" />
+      <path d="M3.5 9.5h17M8 3v4M16 3v4" />
+    </>
+  ),
+  share: (
+    <>
+      <path d="M12 3v12M8 7l4-4 4 4" />
+      <path d="M5 12v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" />
+    </>
+  ),
 };
 
 export function Icon({

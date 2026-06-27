@@ -15,10 +15,10 @@
   --color-surface-2: #f7f7f4;
   --color-line: #e6e5df;
 
-  /* Text — warm near-black → soft grays */
+  /* Text — warm near-black → soft grays (faint darkened to meet WCAG AA ≈4.6:1) */
   --color-fg: #0e0e0c;
   --color-muted: #56564f;
-  --color-faint: #8a897f;
+  --color-faint: #6c6b62;
 
   /* Brand — orange spark. -soft is a richer/darker
      shade tuned for hover states and text on light. */
