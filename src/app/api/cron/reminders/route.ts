@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendEventReminder } from "@/lib/email";
+import { sendEventReminder, sendMembershipRenewal } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 
@@ -85,5 +85,56 @@ export async function GET(request: Request) {
     sent++;
   }
 
-  return NextResponse.json({ ok: true, scanned: rows.length, sent });
+  // ---- Lifecycle: archive events whose date has passed ----
+  const { data: completed } = await admin
+    .from("events")
+    .update({ status: "completed" })
+    .eq("status", "published")
+    .lt("date", from)
+    .select("id");
+
+  // ---- Membership renewals: nudge at T-3 days and on expiry day ----
+  let renewalNotices = 0;
+  for (const { offset, expired } of [
+    { offset: 3, expired: false },
+    { offset: 0, expired: true },
+  ]) {
+    const target = day(offset);
+    const { data: due } = await admin
+      .from("memberships")
+      .select("user_id, tier, renews_at, users(email, full_name)")
+      .eq("status", "active")
+      .gte("renews_at", `${target}T00:00:00Z`)
+      .lt("renews_at", `${target}T23:59:59Z`);
+
+    for (const m of due ?? []) {
+      const u = m.users as unknown as { email: string | null; full_name: string | null } | null;
+      await admin.from("notifications").insert({
+        user_id: m.user_id,
+        type: "membership",
+        title: expired
+          ? `Your ${m.tier} membership has expired`
+          : `Your ${m.tier} membership renews in 3 days`,
+        body: "Renew to keep your ticket discounts and member perks.",
+        link: "/membership",
+      });
+      if (u?.email) {
+        await sendMembershipRenewal({
+          to: u.email,
+          name: u.full_name || "there",
+          tier: m.tier,
+          expired,
+        });
+      }
+      renewalNotices++;
+    }
+  }
+
+  return NextResponse.json({
+    ok: true,
+    scanned: rows.length,
+    sent,
+    eventsCompleted: completed?.length ?? 0,
+    renewalNotices,
+  });
 }

@@ -139,6 +139,54 @@ export async function sendWaitlistPromoted(opts: {
   );
 }
 
+export async function sendMembershipRenewal(opts: {
+  to: string;
+  name: string;
+  tier: string;
+  expired: boolean;
+}): Promise<void> {
+  const url = `${process.env.NEXT_PUBLIC_SITE_URL || ""}/membership`;
+  await send(
+    opts.to,
+    opts.expired
+      ? `Your ${opts.tier} membership has expired`
+      : `Your ${opts.tier} membership renews in 3 days`,
+    shell(
+      opts.expired ? "Membership expired" : "Renewal coming up ⏳",
+      `Hi ${opts.name}, your <strong>${opts.tier}</strong> membership
+       ${opts.expired ? "has expired — your member discounts and perks are paused." : "expires in 3 days."}
+       Renew to keep your ticket discounts and member perks running.
+       <p style="margin:18px 0 0;">
+         <a href="${url}" style="display:inline-block;background:#ff5a1f;color:#fff;text-decoration:none;
+            font-weight:600;padding:11px 22px;border-radius:9999px;">Renew membership</a>
+       </p>`,
+    ),
+  );
+}
+
+export async function sendSpotOpened(opts: {
+  to: string;
+  name: string;
+  eventTitle: string;
+  slug: string;
+}): Promise<void> {
+  const url = `${process.env.NEXT_PUBLIC_SITE_URL || ""}/events/${opts.slug}`;
+  await send(
+    opts.to,
+    `A spot just opened — ${opts.eventTitle}`,
+    shell(
+      "A spot just opened 🎟️",
+      `Hi ${opts.name}, you're on the waitlist for <strong>${opts.eventTitle}</strong>
+       and a seat has just been freed. You're first in line — but it's first come,
+       first served.
+       <p style="margin:18px 0 0;">
+         <a href="${url}" style="display:inline-block;background:#ff5a1f;color:#fff;text-decoration:none;
+            font-weight:600;padding:11px 22px;border-radius:9999px;">Grab your ticket</a>
+       </p>`,
+    ),
+  );
+}
+
 export async function sendEventReminder(opts: {
   to: string;
   name: string;

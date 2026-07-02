@@ -111,6 +111,37 @@ const paths: Record<string, ReactNode> = {
       <circle cx="12" cy="10" r="2.5" />
     </>
   ),
+  home: (
+    <>
+      <path d="M4 10.5 12 4l8 6.5" />
+      <path d="M6 9.5V20h12V9.5" />
+    </>
+  ),
+  users: (
+    <>
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3 20a6 6 0 0 1 12 0" />
+      <path d="M16 5.4a3 3 0 0 1 0 5.2M21.5 20a6 6 0 0 0-4.5-5.8" />
+    </>
+  ),
+  settings: (
+    <>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M12 2.5v2.5M12 19v2.5M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2.5 12H5M19 12h2.5M4.2 19.8 6 18M18 6l1.8-1.8" />
+    </>
+  ),
+  logout: (
+    <>
+      <path d="M14 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8" />
+      <path d="M18 16l4-4-4-4M22 12H10" />
+    </>
+  ),
+  bell: (
+    <>
+      <path d="M6 9a6 6 0 0 1 12 0c0 4.5 1.5 5.5 2 6H4c.5-.5 2-1.5 2-6Z" />
+      <path d="M9.5 20a2.5 2.5 0 0 0 5 0" />
+    </>
+  ),
 };
 
 export function Icon({

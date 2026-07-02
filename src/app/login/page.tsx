@@ -38,7 +38,7 @@ function LoginForm() {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
         email,
         {
-          redirectTo: `${window.location.origin}/auth/confirm?next=/account/new-password`,
+          redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/auth/confirm?next=/account/new-password`,
         },
       );
       setLoading(false);
@@ -53,7 +53,10 @@ function LoginForm() {
       const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: fullName, phone, city, role } },
+        options: { 
+          data: { full_name: fullName, phone, city, role },
+          emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/auth/confirm?next=/profile`
+        },
       });
       setLoading(false);
       if (signUpError) return setError(signUpError.message);
