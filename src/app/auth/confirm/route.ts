@@ -33,9 +33,12 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Supabase may bounce back with its own error details — surface them.
+  const supabaseError = searchParams.get("error_description");
   return NextResponse.redirect(
     `${origin}/login?error=${encodeURIComponent(
-      "That confirmation link is invalid or has expired. Please sign in or request a new one.",
+      supabaseError ??
+        "That confirmation link is invalid or has expired. Please sign in or request a new one.",
     )}`,
   );
 }
