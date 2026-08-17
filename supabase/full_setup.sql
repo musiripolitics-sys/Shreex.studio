@@ -18,7 +18,7 @@ create type registration_status as enum ('registered','waitlisted','cancelled','
 create type payment_status      as enum ('pending','paid','failed','refunded');
 create type membership_tier     as enum ('Free','Pro','Elite');
 create type membership_status   as enum ('active','cancelled','expired','past_due');
-create type leader_role         as enum ('Founder','Community Lead','Event Coordinator','Ambassador','Mentor');
+create type leader_role         as enum ('Founder','Manager','Community Lead','Event Coordinator','Ambassador','Mentor');
 create type partner_type        as enum ('Technology Companies','Startups','Communities','Colleges','Media Partners');
 create type contact_topic       as enum ('General enquiry','Host an event','Partnership / Sponsorship','Membership','Press / Media');
 create type revenue_stream      as enum ('membership','ticket_sales','sponsorship','listing_fee','workshop_program');
