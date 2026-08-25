@@ -74,6 +74,8 @@ export async function sendRegistrationConfirmation(opts: {
   ticketCode: string;
   dateLabel?: string | null;
   venue?: string | null;
+  /** Additional ticket codes when more than one seat was booked. */
+  extraTickets?: string[];
 }): Promise<void> {
   const details = [
     opts.dateLabel ? `<strong>When:</strong> ${opts.dateLabel}` : null,
@@ -94,6 +96,14 @@ export async function sendRegistrationConfirmation(opts: {
                    font-family:monospace;font-size:20px;font-weight:700;letter-spacing:3px;color:#0e0e0c;">
          ${opts.ticketCode.toUpperCase()}
        </div>
+       ${
+         opts.extraTickets?.length
+           ? `<p style="margin:16px 0 6px;font-size:13px;color:#8a897f;">Your other tickets</p>
+              <p style="margin:0;font-family:monospace;font-size:15px;color:#0e0e0c;">
+                ${opts.extraTickets.map((c) => c.toUpperCase()).join("<br/>")}
+              </p>`
+           : ""
+       }
        <p style="margin:18px 0 0;">Show this code at check-in. See you there!</p>`,
     ),
   );
@@ -212,6 +222,31 @@ export async function sendEventReminder(opts: {
          ${opts.ticketCode.toUpperCase()}
        </div>
        <p style="margin:18px 0 0;">Show this code at the door. Can't wait to see you!</p>`,
+    ),
+  );
+}
+
+export async function sendAttendeeBroadcast(opts: {
+  to: string;
+  name: string;
+  eventTitle: string;
+  message: string;
+}): Promise<void> {
+  const safe = opts.message
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br/>");
+  await send(
+    opts.to,
+    `Update: ${opts.eventTitle}`,
+    shell(
+      `An update from ${opts.eventTitle}`,
+      `Hi ${opts.name},
+       <p style="margin:14px 0 0;">${safe}</p>
+       <p style="margin:18px 0 0;font-size:13px;color:#8a897f;">
+         You're receiving this because you're registered for this event.
+       </p>`,
     ),
   );
 }

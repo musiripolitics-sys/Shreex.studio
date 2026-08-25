@@ -130,10 +130,14 @@ export async function GET(request: Request) {
     }
   }
 
+  // ---- Release seats held by checkouts that were never completed ----
+  const { data: expiredOrders } = await admin.rpc("expire_pending_orders");
+
   return NextResponse.json({
     ok: true,
     scanned: rows.length,
     sent,
+    ordersExpired: expiredOrders ?? 0,
     eventsCompleted: completed?.length ?? 0,
     renewalNotices,
   });
