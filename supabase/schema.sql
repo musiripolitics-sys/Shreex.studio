@@ -86,7 +86,7 @@ exception when duplicate_object then null; end $$;
 -- ============================================================
 -- Identity (mirrors Supabase auth.users)
 -- ============================================================
-create table public.users (
+create table if not exists public.users (
   id           uuid primary key references auth.users(id) on delete cascade,
   full_name    text,
   email        citext unique,
@@ -103,7 +103,7 @@ create table public.users (
   discoverable boolean not null default false
 );
 
-create table public.user_roles (
+create table if not exists public.user_roles (
   id         uuid primary key default gen_random_uuid(),
   user_id    uuid not null references public.users(id) on delete cascade,
   role       user_role not null,
@@ -114,7 +114,7 @@ create table public.user_roles (
 -- ============================================================
 -- Reference / config
 -- ============================================================
-create table public.cities (
+create table if not exists public.cities (
   id           uuid primary key default gen_random_uuid(),
   name         text not null unique,
   state        text,
@@ -122,7 +122,7 @@ create table public.cities (
   lead_user_id uuid references public.users(id) on delete set null
 );
 
-create table public.partners (
+create table if not exists public.partners (
   id          uuid primary key default gen_random_uuid(),
   name        text not null,
   type        partner_type,
@@ -133,7 +133,7 @@ create table public.partners (
   created_at  timestamptz not null default now()
 );
 
-create table public.activities (
+create table if not exists public.activities (
   id          uuid primary key default gen_random_uuid(),
   title       text not null,
   description text,
@@ -141,7 +141,7 @@ create table public.activities (
   sort_order  int not null default 0
 );
 
-create table public.speakers (
+create table if not exists public.speakers (
   id           uuid primary key default gen_random_uuid(),
   name         text not null,
   role         text,
@@ -154,7 +154,7 @@ create table public.speakers (
 -- ============================================================
 -- Payments (before events / registrations / sponsorships)
 -- ============================================================
-create table public.payments (
+create table if not exists public.payments (
   id           uuid primary key default gen_random_uuid(),
   user_id      uuid references public.users(id) on delete set null,
   stream       revenue_stream not null,
@@ -171,7 +171,7 @@ create table public.payments (
 -- ============================================================
 -- Events
 -- ============================================================
-create table public.events (
+create table if not exists public.events (
   id            uuid primary key default gen_random_uuid(),
   slug          text not null unique,
   title         text not null,
@@ -205,7 +205,7 @@ create table public.events (
   timezone text not null default 'Asia/Kolkata'
 );
 
-create table public.host_submissions (
+create table if not exists public.host_submissions (
   id                 uuid primary key default gen_random_uuid(),
   title              text not null,
   category           event_category not null,
@@ -225,7 +225,7 @@ create table public.host_submissions (
   capacity int not null default 100
 );
 
-create table public.event_speakers (
+create table if not exists public.event_speakers (
   id         uuid primary key default gen_random_uuid(),
   event_id   uuid not null references public.events(id) on delete cascade,
   speaker_id uuid not null references public.speakers(id) on delete cascade,
@@ -233,7 +233,7 @@ create table public.event_speakers (
   unique (event_id, speaker_id)
 );
 
-create table public.event_agenda (
+create table if not exists public.event_agenda (
   id         uuid primary key default gen_random_uuid(),
   event_id   uuid not null references public.events(id) on delete cascade,
   when_label text not null,
@@ -244,7 +244,7 @@ create table public.event_agenda (
 -- ============================================================
 -- Registration & attendance
 -- ============================================================
-create table public.registrations (
+create table if not exists public.registrations (
   id             uuid primary key default gen_random_uuid(),
   event_id       uuid not null references public.events(id) on delete cascade,
   user_id        uuid references public.users(id) on delete set null,
@@ -262,7 +262,7 @@ create table public.registrations (
 -- ============================================================
 -- Membership
 -- ============================================================
-create table public.membership_plans (
+create table if not exists public.membership_plans (
   id           uuid primary key default gen_random_uuid(),
   tier         membership_tier not null unique,
   name         text not null,
@@ -275,7 +275,7 @@ create table public.membership_plans (
   sort_order   int not null default 0
 );
 
-create table public.benefits (
+create table if not exists public.benefits (
   id          uuid primary key default gen_random_uuid(),
   title       text not null,
   description text,
@@ -284,7 +284,7 @@ create table public.benefits (
   sort_order  int not null default 0
 );
 
-create table public.plan_benefits (
+create table if not exists public.plan_benefits (
   id         uuid primary key default gen_random_uuid(),
   plan_id    uuid not null references public.membership_plans(id) on delete cascade,
   benefit_id uuid references public.benefits(id) on delete cascade,
@@ -292,7 +292,7 @@ create table public.plan_benefits (
   unique (plan_id, benefit_id)
 );
 
-create table public.memberships (
+create table if not exists public.memberships (
   id                   uuid primary key default gen_random_uuid(),
   user_id              uuid not null references public.users(id) on delete cascade,
   plan_id              uuid references public.membership_plans(id) on delete set null,
@@ -307,7 +307,7 @@ create table public.memberships (
 -- ============================================================
 -- Leadership & gamification
 -- ============================================================
-create table public.leader_profiles (
+create table if not exists public.leader_profiles (
   id           uuid primary key default gen_random_uuid(),
   user_id      uuid references public.users(id) on delete set null,
   display_name text not null,
@@ -323,7 +323,7 @@ create table public.leader_profiles (
   sort_order   int not null default 0
 );
 
-create table public.badges (
+create table if not exists public.badges (
   id          uuid primary key default gen_random_uuid(),
   name        text not null,
   description text,
@@ -331,7 +331,7 @@ create table public.badges (
   criteria    text
 );
 
-create table public.user_badges (
+create table if not exists public.user_badges (
   id         uuid primary key default gen_random_uuid(),
   user_id    uuid not null references public.users(id) on delete cascade,
   badge_id   uuid not null references public.badges(id) on delete cascade,
@@ -339,7 +339,7 @@ create table public.user_badges (
   unique (user_id, badge_id)
 );
 
-create table public.point_events (
+create table if not exists public.point_events (
   id         uuid primary key default gen_random_uuid(),
   user_id    uuid not null references public.users(id) on delete cascade,
   delta      int not null,
@@ -351,7 +351,7 @@ create table public.point_events (
 -- ============================================================
 -- Sponsorships
 -- ============================================================
-create table public.sponsorships (
+create table if not exists public.sponsorships (
   id         uuid primary key default gen_random_uuid(),
   partner_id uuid not null references public.partners(id) on delete cascade,
   event_id   uuid references public.events(id) on delete set null,
@@ -366,7 +366,7 @@ create table public.sponsorships (
 -- ============================================================
 -- Marketing & comms
 -- ============================================================
-create table public.newsletter_subscribers (
+create table if not exists public.newsletter_subscribers (
   id              uuid primary key default gen_random_uuid(),
   email           citext not null unique,
   source          text,
@@ -376,7 +376,7 @@ create table public.newsletter_subscribers (
   created_at      timestamptz not null default now()
 );
 
-create table public.contact_messages (
+create table if not exists public.contact_messages (
   id         uuid primary key default gen_random_uuid(),
   name       text not null,
   email      citext not null,
@@ -619,6 +619,11 @@ create index if not exists idx_follows_organizer
 -- ============================================================
 -- Functions
 -- ============================================================
+
+-- ---------- updated_at helper ----------
+create or replace function set_updated_at()
+returns trigger language plpgsql as $$
+begin new.updated_at = now(); return new; end; $$;
 
 -- ---------- Role helper functions ----------
 create or replace function public.is_admin()
@@ -1308,16 +1313,20 @@ end; $$;
 -- Triggers
 -- ============================================================
 
+drop trigger if exists trg_users_updated on public.users;
 create trigger trg_users_updated before update on public.users
   for each row execute function set_updated_at();
 
+drop trigger if exists trg_events_updated on public.events;
 create trigger trg_events_updated before update on public.events
   for each row execute function set_updated_at();
 
+drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
+drop trigger if exists trg_sync_user_email on auth.users;
 create trigger trg_sync_user_email
   after update of email on auth.users
   for each row execute function public.sync_user_email();
@@ -1680,9 +1689,10 @@ create policy "unfollow own" on public.organizer_follows
 -- Grants
 -- ============================================================
 
-revoke all on function public.register_for_event(uuid, text, text, text, uuid) from public;
+revoke all on function public.register_for_event(uuid, text, text, text, uuid, uuid) from public;
 
-grant execute on function public.register_for_event(uuid, text, text, text, uuid) to anon, authenticated;
+grant execute on function public.register_for_event(uuid, text, text, text, uuid, uuid)
+  to anon, authenticated, service_role;
 
 revoke all on function public.join_waitlist(uuid, text, text, text) from public;
 
@@ -1700,10 +1710,6 @@ revoke all on function public.check_in_ticket(text) from public;
 
 grant execute on function public.check_in_ticket(text) to authenticated;
 
-revoke all on function public.get_directory() from public;
-
-grant execute on function public.get_directory() to authenticated;
-
 grant execute on function public.attended(uuid) to authenticated;
 
 revoke all on function public.notify(uuid, text, text, text, text) from public;
@@ -1718,11 +1724,6 @@ revoke all on function public.redeem_promo(text) from public;
 
 grant execute on function public.redeem_promo(text) to authenticated, service_role;
 
-revoke all on function public.register_for_event(uuid, text, text, text, uuid, uuid) from public;
-
-grant execute on function public.register_for_event(uuid, text, text, text, uuid, uuid)
-  to anon, authenticated, service_role;
-
 grant execute on function public.get_host_earnings() to authenticated;
 
 grant execute on function public.record_sponsorship(int, text) to authenticated;
@@ -1731,28 +1732,23 @@ grant execute on function public.get_top_members(int) to anon, authenticated;
 
 grant execute on function public.member_discount_pct(uuid) to authenticated, service_role;
 
-revoke all on function public.create_pending_order(uuid, uuid, int, text, text, text, text, uuid) from public;
+revoke all on function public.create_pending_order(uuid, uuid, int, text, text, text, text, uuid, jsonb) from public;
 
-grant execute on function public.create_pending_order(uuid, uuid, int, text, text, text, text, uuid)
+grant execute on function public.create_pending_order(uuid, uuid, int, text, text, text, text, uuid, jsonb)
   to anon, authenticated, service_role;
 
 revoke all on function public.fulfil_order(uuid, uuid) from public;
 
 grant execute on function public.fulfil_order(uuid, uuid) to authenticated, service_role;
 
-revoke all on function public.register_free_order(uuid, uuid, int, text, text, text) from public;
+revoke all on function public.register_free_order(uuid, uuid, int, text, text, text, jsonb) from public;
 
-grant execute on function public.register_free_order(uuid, uuid, int, text, text, text)
+grant execute on function public.register_free_order(uuid, uuid, int, text, text, text, jsonb)
   to anon, authenticated, service_role;
 
 revoke all on function public.expire_pending_orders() from public;
 
 grant execute on function public.expire_pending_orders() to authenticated, service_role;
-
-revoke all on function public.register_for_event(uuid, text, text, text, uuid, uuid) from public;
-
-grant execute on function public.register_for_event(uuid, text, text, text, uuid, uuid)
-  to anon, authenticated, service_role;
 
 revoke all on function public.get_all_host_earnings() from public;
 
@@ -1761,16 +1757,6 @@ grant execute on function public.get_all_host_earnings() to authenticated;
 revoke all on function public.record_payout(uuid, int, text) from public;
 
 grant execute on function public.record_payout(uuid, int, text) to authenticated;
-
-revoke all on function public.create_pending_order(uuid, uuid, int, text, text, text, text, uuid, jsonb) from public;
-
-grant execute on function public.create_pending_order(uuid, uuid, int, text, text, text, text, uuid, jsonb)
-  to anon, authenticated, service_role;
-
-revoke all on function public.register_free_order(uuid, uuid, int, text, text, text, jsonb) from public;
-
-grant execute on function public.register_free_order(uuid, uuid, int, text, text, text, jsonb)
-  to anon, authenticated, service_role;
 
 revoke all on function public.get_event_stats(uuid) from public;
 
