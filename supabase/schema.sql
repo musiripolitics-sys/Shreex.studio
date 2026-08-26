@@ -856,9 +856,11 @@ begin
     set status = 'attended', checked_in_at = now()
     where id = v_reg.id;
 
-  -- Award 10 attendance points to the member (guests with no account get none).
+  -- Award 10 attendance credits (guests with no account get none). Routed
+  -- through award_credits so the ledger records why the balance moved.
   if v_reg.user_id is not null then
-    update public.users set points = points + 10 where id = v_reg.user_id;
+    perform public.award_credits(
+      v_reg.user_id, 10, 'Attended ' || coalesce(v_event.title, 'an event'), v_reg.event_id);
   end if;
 
   return jsonb_build_object('status', 'ok', 'message', 'Checked in',
@@ -1333,6 +1335,193 @@ create trigger trg_sync_user_email
 
 
 -- ============================================================
+-- Community: credits, gates, threading and paid downloads
+-- ============================================================
+-- Credits are the points members already earn at check-in (+10). Speaking is
+-- gated on the balance you *hold*; downloads are the one thing that spends it.
+-- Every gate is a row in community_gates, so switching an action from a
+-- threshold to a per-use charge is a config change, not a migration.
+
+-- ---------- Gate configuration ----------
+create table if not exists public.community_gates (
+  action      text primary key,
+  min_balance int not null default 0,
+  cost        int not null default 0,
+  label       text
+);
+
+insert into public.community_gates (action, min_balance, cost, label) values
+  ('comment',     10, 0, 'Comment on a post'),
+  ('post_group',  10, 0, 'Post in a session group'),
+  ('post_global', 30, 0, 'Post in a public channel')
+on conflict (action) do nothing;
+
+-- ---------- Files a group can offer ----------
+create table if not exists public.community_files (
+  id           uuid primary key default gen_random_uuid(),
+  event_id     uuid references public.events(id) on delete cascade,
+  channel      text,
+  title        text not null,
+  description  text,
+  storage_path text not null,
+  mime_type    text,
+  size_bytes   bigint,
+  credit_cost  int  not null default 0,
+  created_by   uuid not null references public.users(id) on delete cascade,
+  created_at   timestamptz not null default now()
+);
+create index if not exists community_files_event_idx on public.community_files(event_id);
+
+-- Who has already paid for what, so a file is only ever charged once.
+create table if not exists public.file_unlocks (
+  file_id    uuid not null references public.community_files(id) on delete cascade,
+  user_id    uuid not null references public.users(id) on delete cascade,
+  spent      int  not null default 0,
+  created_at timestamptz not null default now(),
+  primary key (file_id, user_id)
+);
+
+-- ---------- One level of comment threading ----------
+alter table public.post_comments
+  add column if not exists parent_id uuid references public.post_comments(id) on delete cascade;
+create index if not exists post_comments_parent_idx on public.post_comments(parent_id);
+
+-- ---------- Credit ledger + spend ----------
+-- users.points stays the authoritative balance (the directory already reads
+-- it); point_events is the history behind it. Both move together, always
+-- inside one statement or one function.
+
+-- Internal: award credits and log why. Not granted to clients.
+create or replace function public.award_credits(
+  p_user uuid, p_amount int, p_reason text, p_event_id uuid default null
+) returns void
+language plpgsql security definer set search_path = public
+as $$
+begin
+  if p_user is null or p_amount = 0 then return; end if;
+  update public.users set points = points + p_amount where id = p_user;
+  insert into public.point_events (user_id, delta, reason, event_id)
+  values (p_user, p_amount, p_reason, p_event_id);
+end;
+$$;
+
+-- Spend the caller's credits. The check and the debit are one UPDATE, so two
+-- concurrent calls can never both pass a balance that only covers one.
+create or replace function public.spend_credits(
+  p_amount int, p_reason text, p_event_id uuid default null
+) returns int
+language plpgsql security definer set search_path = public
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_new int;
+begin
+  if v_uid is null then raise exception 'Not signed in'; end if;
+  if p_amount is null or p_amount < 0 then raise exception 'Invalid amount'; end if;
+  if p_amount = 0 then
+    return (select points from public.users where id = v_uid);
+  end if;
+
+  update public.users
+     set points = points - p_amount
+   where id = v_uid and points >= p_amount
+   returning points into v_new;
+
+  if not found then
+    raise exception 'Not enough credits' using errcode = 'check_violation';
+  end if;
+
+  insert into public.point_events (user_id, delta, reason, event_id)
+  values (v_uid, -p_amount, p_reason, p_event_id);
+
+  return v_new;
+end;
+$$;
+
+-- Does the caller clear the gate for this action? Admins always do.
+create or replace function public.meets_gate(p_action text)
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select public.is_admin() or coalesce((
+    select u.points >= g.min_balance
+      from public.users u
+      join public.community_gates g on g.action = p_action
+     where u.id = auth.uid()
+  ), true);
+$$;
+
+-- ---------- Buying a download ----------
+-- Returns the storage path only once the file is unlocked. The caller still
+-- has to mint a signed URL server-side; this function is the authority on
+-- whether they may.
+create or replace function public.unlock_file(p_file_id uuid)
+returns jsonb
+language plpgsql security definer set search_path = public
+as $$
+declare
+  v_uid  uuid := auth.uid();
+  v_file public.community_files;
+  v_bal  int;
+begin
+  if v_uid is null then
+    return jsonb_build_object('status', 'denied', 'message', 'Sign in to download this.');
+  end if;
+
+  select * into v_file from public.community_files where id = p_file_id;
+  if not found then
+    return jsonb_build_object('status', 'denied', 'message', 'File not found.');
+  end if;
+
+  -- Same visibility rule as posts: a session group's files are for attendees.
+  if v_file.event_id is not null
+     and not (public.is_admin() or public.attended(v_file.event_id)) then
+    return jsonb_build_object('status', 'denied',
+      'message', 'This file is for people who attended the session.');
+  end if;
+
+  -- Already paid, or free, or admin — hand it over.
+  if public.is_admin()
+     or v_file.credit_cost = 0
+     or exists (select 1 from public.file_unlocks
+                 where file_id = p_file_id and user_id = v_uid) then
+    insert into public.file_unlocks (file_id, user_id, spent)
+    values (p_file_id, v_uid, 0)
+    on conflict (file_id, user_id) do nothing;
+    return jsonb_build_object('status', 'ok', 'path', v_file.storage_path);
+  end if;
+
+  select points into v_bal from public.users where id = v_uid;
+  if coalesce(v_bal, 0) < v_file.credit_cost then
+    return jsonb_build_object('status', 'short',
+      'needed', v_file.credit_cost, 'balance', coalesce(v_bal, 0),
+      'message', format('This download costs %s credits — you have %s. Attend a session to earn 10 more.',
+                        v_file.credit_cost, coalesce(v_bal, 0)));
+  end if;
+
+  perform public.spend_credits(
+    v_file.credit_cost, 'Downloaded ' || v_file.title, v_file.event_id);
+
+  insert into public.file_unlocks (file_id, user_id, spent)
+  values (p_file_id, v_uid, v_file.credit_cost)
+  on conflict (file_id, user_id) do nothing;
+
+  return jsonb_build_object('status', 'ok', 'path', v_file.storage_path);
+end;
+$$;
+
+-- ---------- Backfill the ledger ----------
+-- Members already hold points awarded before point_events existed. Give each
+-- an opening entry so their history reconciles with their balance. Skips
+-- anyone who already has ledger rows, so re-running schema.sql is safe.
+insert into public.point_events (user_id, delta, reason)
+select u.id, u.points, 'Attendance credits earned before the ledger existed'
+  from public.users u
+ where u.points > 0
+   and not exists (select 1 from public.point_events pe where pe.user_id = u.id);
+
+
+-- ============================================================
 -- Row level security
 -- ============================================================
 
@@ -1518,6 +1707,8 @@ drop policy if exists "create own post" on public.posts;
 create policy "create own post" on public.posts for insert with check (
   auth.uid() = author_id
   and (event_id is null or public.is_admin() or public.attended(event_id))
+  -- Credit gate: holding a balance, not spending it. Admins are exempt.
+  and public.meets_gate(case when event_id is null then 'post_global' else 'post_group' end)
 );
 
 drop policy if exists "admin update posts" on public.posts;
@@ -1561,7 +1752,9 @@ create policy "read comments" on public.post_comments for select using (
 
 drop policy if exists "comment own" on public.post_comments;
 create policy "comment own" on public.post_comments for insert with check (
-  auth.uid() = author_id and exists (
+  auth.uid() = author_id
+  and public.meets_gate('comment')
+  and exists (
     select 1 from public.posts p
     where p.id = post_comments.post_id
       and (p.event_id is null or public.is_admin() or public.attended(p.event_id))
@@ -1767,3 +1960,50 @@ grant execute on function public.get_organizer(uuid) to anon, authenticated;
 revoke all on function public.notify_followers(uuid) from public;
 
 grant execute on function public.notify_followers(uuid) to authenticated;
+
+-- ---------- RLS ----------
+alter table public.community_gates enable row level security;
+alter table public.community_files enable row level security;
+alter table public.file_unlocks    enable row level security;
+alter table public.point_events    enable row level security;
+
+drop policy if exists "read gates" on public.community_gates;
+create policy "read gates" on public.community_gates
+  for select using (auth.uid() is not null);
+
+drop policy if exists "admin writes gates" on public.community_gates;
+create policy "admin writes gates" on public.community_gates
+  for all using (public.is_admin()) with check (public.is_admin());
+
+-- Files follow the same visibility rule as posts.
+drop policy if exists "read community files" on public.community_files;
+create policy "read community files" on public.community_files
+  for select using (
+    auth.uid() is not null
+    and (event_id is null or public.is_admin() or public.attended(event_id))
+  );
+
+drop policy if exists "admin writes files" on public.community_files;
+create policy "admin writes files" on public.community_files
+  for all using (public.is_admin()) with check (public.is_admin());
+
+-- Members see only their own unlocks; only unlock_file() creates them.
+drop policy if exists "read own unlocks" on public.file_unlocks;
+create policy "read own unlocks" on public.file_unlocks
+  for select using (auth.uid() = user_id or public.is_admin());
+
+-- Members read their own credit history.
+drop policy if exists "read own point events" on public.point_events;
+create policy "read own point events" on public.point_events
+  for select using (auth.uid() = user_id or public.is_admin());
+
+-- ---------- Grants ----------
+revoke all on function public.award_credits(uuid, int, text, uuid) from public;
+
+revoke all on function public.spend_credits(int, text, uuid) from public;
+grant execute on function public.spend_credits(int, text, uuid) to authenticated;
+
+grant execute on function public.meets_gate(text) to authenticated;
+
+revoke all on function public.unlock_file(uuid) from public;
+grant execute on function public.unlock_file(uuid) to authenticated;
