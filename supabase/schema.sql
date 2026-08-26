@@ -1720,6 +1720,25 @@ $$;
 revoke all on function public.ensure_group_seed_post(uuid) from public;
 
 
+
+-- ---------- Event discovery ----------
+-- Tags are the segments the seven fixed categories can't express — "react",
+-- "beginner", "students welcome". Normalised to lowercase on write by the app.
+alter table public.events add column if not exists tags text[] not null default '{}';
+create index if not exists events_tags_idx on public.events using gin(tags);
+
+-- Optional precise coordinates. Without them the detail page falls back to
+-- looking the address up, which is fine — these just make it exact.
+alter table public.events add column if not exists latitude  double precision;
+alter table public.events add column if not exists longitude double precision;
+
+-- Short "good to know" facts, kept loose so hosts can add what fits.
+alter table public.events add column if not exists highlights jsonb not null default '[]';
+
+-- Shown on paid tickets, where "can I get my money back?" actually comes up.
+alter table public.events add column if not exists refund_policy text;
+
+
 -- ============================================================
 -- Row level security
 -- ============================================================
