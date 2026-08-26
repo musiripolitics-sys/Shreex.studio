@@ -1725,6 +1725,10 @@ revoke all on function public.ensure_group_seed_post(uuid) from public;
 -- Hosts tag their own events at submission; approval carries the tags across.
 alter table public.host_submissions add column if not exists tags text[] not null default '{}';
 
+-- Hosts state their own start/end time. Without this every approved submission
+-- inherited a hardcoded "10:00 AM - 1:00 PM IST" regardless of reality.
+alter table public.host_submissions add column if not exists time text;
+
 -- Tags are the segments the seven fixed categories can't express — "react",
 -- "beginner", "students welcome". Normalised to lowercase on write by the app.
 alter table public.events add column if not exists tags text[] not null default '{}';
