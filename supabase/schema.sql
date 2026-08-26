@@ -864,6 +864,9 @@ begin
     perform public.refresh_badges(v_reg.user_id);
   end if;
 
+  -- Make sure the group has something in it before anyone arrives.
+  perform public.ensure_group_seed_post(v_reg.event_id);
+
   return jsonb_build_object('status', 'ok', 'message', 'Checked in',
     'attendeeName', v_reg.attendee_name, 'eventTitle', v_event.title);
 end;
@@ -1666,6 +1669,55 @@ alter table public.post_reports enable row level security;
 drop policy if exists "admin reads reports" on public.post_reports;
 create policy "admin reads reports" on public.post_reports
   for select using (public.is_admin() or auth.uid() = reporter_id);
+
+
+
+-- ---------- Seed a session group so it is never empty ----------
+-- An empty group is worse than no group: the first attendee to arrive sees a
+-- dead room. The first check-in for an event leaves a pinned opener, posted as
+-- the event's host (or an admin if the event has none).
+create or replace function public.ensure_group_seed_post(p_event_id uuid)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+declare
+  v_event  public.events;
+  v_author uuid;
+  v_name   text;
+begin
+  if p_event_id is null then return; end if;
+  if exists (select 1 from public.posts where event_id = p_event_id) then return; end if;
+
+  select * into v_event from public.events where id = p_event_id;
+  if not found then return; end if;
+
+  v_author := v_event.host_id;
+  if v_author is null then
+    select ur.user_id into v_author from public.user_roles ur where ur.role = 'admin' limit 1;
+  end if;
+  if v_author is null then return; end if;  -- nobody to attribute it to
+
+  select coalesce(full_name, 'Techxfluence') into v_name from public.users where id = v_author;
+
+  insert into public.posts (author_id, author_name, author_role, body, pinned, channel, event_id)
+  values (
+    v_author,
+    coalesce(v_name, 'Techxfluence'),
+    'Host',
+    format(
+      'Welcome to the %s group.' || chr(10) || chr(10) ||
+      'This space is private to everyone who attended. Share your takeaways, '
+      'post what you built, and ask the questions you didn''t get to on the day. '
+      'Slides and recordings will show up under Downloads.',
+      v_event.title),
+    true,
+    'event',
+    p_event_id
+  );
+end;
+$$;
+
+revoke all on function public.ensure_group_seed_post(uuid) from public;
 
 
 -- ============================================================

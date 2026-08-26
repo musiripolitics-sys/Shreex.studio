@@ -35,11 +35,16 @@ update community_gates set min_balance = 0, cost = 5 where action = 'post_group'
 
 ## Tests
 ```
-node supabase/tests/credits.test.mjs
+for t in credits reports group-seed; do node supabase/tests/$t.test.mjs; done
 ```
-Runs `schema.sql` on a real Postgres (PGlite, in-memory) and asserts the
-credit rules — spending can't go negative, downloads charge once, gates
-threshold correctly, the backfill is idempotent.
+Each runs `schema.sql` on a real Postgres (PGlite, in-memory) and asserts
+behaviour, not shape:
+
+| Suite | Covers |
+|---|---|
+| `credits` | Spending can't go negative, downloads charge once, gates threshold correctly, the backfill is idempotent |
+| `reports` | Admins are notified once per report, duplicates are refused, only admins resolve |
+| `group-seed` | First check-in leaves a pinned welcome post; later check-ins don't duplicate it |
 
 ## Seeds (optional, run after schema.sql)
 | File | Purpose |
