@@ -3,8 +3,11 @@ import nodemailer, { type Transporter } from "nodemailer";
 
 // Google Workspace / Gmail SMTP. Requires an App Password on the sending
 // account (2-Step Verification must be on). All vars come from env.
+// Falls back to the authenticated mailbox rather than a fixed address: you can
+// always send as yourself, but sending as anyone else needs Gmail's
+// "Send mail as" verification, and a wrong default fails at delivery time.
 const FROM =
-  process.env.EMAIL_FROM || "Techxfluence <contact@techxfluence.com>";
+  process.env.EMAIL_FROM || process.env.SMTP_USER || "Techxfluence";
 
 let _transporter: Transporter | null = null;
 function getTransporter(): Transporter | null {
