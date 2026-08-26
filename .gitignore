@@ -63,6 +63,9 @@ build/Release
 .env.development
 .env.production
 .env.test
+# Backups of env files are still env files.
+.env*.bak
+.env*.backup
 
 # Vercel
 .vercel
