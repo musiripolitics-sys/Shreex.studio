@@ -77,3 +77,6 @@ next-env.d.ts
 # OS metadata
 .DS_Store
 Thumbs.db
+
+# esbuild scratch for the email test harness
+.tmp/

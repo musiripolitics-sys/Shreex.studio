@@ -88,7 +88,12 @@ update events set community_id = (select id from communities where slug='chennai
 ```
 npm run check:smtp                 # verify credentials, send nothing
 npm run check:smtp you@example.com # also send one test message
+npm run test:email                 # all 9 templates through a local SMTP sink
 ```
+`test:email` needs no credentials and no network — it stands up a local SMTP
+server, sends every template through the real code path, and checks what came
+out: subject present, correct From, HTML body, and no undefined leaking from a
+renamed field.
 Prints the exact SMTP response, so a rejected password can be told apart from
 a network problem. Never prints the password itself.
 
