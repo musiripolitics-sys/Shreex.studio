@@ -861,6 +861,7 @@ begin
   if v_reg.user_id is not null then
     perform public.award_credits(
       v_reg.user_id, 10, 'Attended ' || coalesce(v_event.title, 'an event'), v_reg.event_id);
+    perform public.refresh_badges(v_reg.user_id);
   end if;
 
   return jsonb_build_object('status', 'ok', 'message', 'Checked in',
@@ -1519,6 +1520,67 @@ select u.id, u.points, 'Attendance credits earned before the ledger existed'
   from public.users u
  where u.points > 0
    and not exists (select 1 from public.point_events pe where pe.user_id = u.id);
+
+
+
+-- ---------- Trust levels ----------
+-- Badges are awarded from participation, Discourse-style: attendance and
+-- posting, re-evaluated whenever a member is checked in. `slug` makes each
+-- badge addressable so the seed below stays idempotent.
+alter table public.badges add column if not exists slug text;
+alter table public.badges add column if not exists threshold int;
+-- Plain (not partial) so ON CONFLICT (slug) can infer it. Postgres still
+-- permits multiple NULL slugs under a unique index.
+create unique index if not exists badges_slug_key on public.badges(slug);
+
+insert into public.badges (slug, name, description, icon, criteria, threshold) values
+  ('first_session', 'First session',  'Attended your first Techxfluence event.', 'ticket',  'attendance', 1),
+  ('regular',       'Regular',        'Attended five sessions.',                 'medal',   'attendance', 5),
+  ('committed',     'Committed',      'Attended ten sessions.',                  'trophy',  'attendance', 10),
+  ('contributor',   'Contributor',    'Posted in the community five times.',     'sparkle', 'posts',      5)
+on conflict (slug) do update
+  set name = excluded.name,
+      description = excluded.description,
+      icon = excluded.icon,
+      criteria = excluded.criteria,
+      threshold = excluded.threshold;
+
+-- Re-evaluate one member's badges. Cheap, idempotent, safe to call often.
+create or replace function public.refresh_badges(p_user uuid)
+returns void
+language plpgsql security definer set search_path = public
+as $$
+declare
+  v_sessions int;
+  v_posts    int;
+begin
+  if p_user is null then return; end if;
+
+  select count(*) into v_sessions from public.registrations
+   where user_id = p_user and status = 'attended';
+  select count(*) into v_posts from public.posts where author_id = p_user;
+
+  insert into public.user_badges (user_id, badge_id)
+  select p_user, b.id
+    from public.badges b
+   where b.threshold is not null
+     and ((b.criteria = 'attendance' and v_sessions >= b.threshold)
+       or (b.criteria = 'posts'      and v_posts    >= b.threshold))
+  on conflict (user_id, badge_id) do nothing;
+end;
+$$;
+
+revoke all on function public.refresh_badges(uuid) from public;
+grant execute on function public.refresh_badges(uuid) to authenticated;
+
+drop policy if exists "read badges" on public.badges;
+create policy "read badges" on public.badges for select using (true);
+
+drop policy if exists "read user badges" on public.user_badges;
+create policy "read user badges" on public.user_badges for select using (true);
+
+alter table public.badges enable row level security;
+alter table public.user_badges enable row level security;
 
 
 -- ============================================================
