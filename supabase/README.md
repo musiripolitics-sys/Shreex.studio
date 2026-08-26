@@ -33,6 +33,21 @@ update community_gates set min_balance = 30 where action = 'post_global';
 update community_gates set min_balance = 0, cost = 5 where action = 'post_group';
 ```
 
+## Event discovery — one-time setup
+Re-running `schema.sql` also adds `events.tags`, `latitude`/`longitude`,
+`highlights` and `refund_policy`. All are defaulted, so existing events stay
+valid and the pages degrade cleanly until it runs:
+
+| Missing | Behaviour |
+|---|---|
+| `tags` | No tag filter, no tag chips |
+| `latitude`/`longitude` | Address with Google/Apple Maps links instead of a map |
+| `highlights` | "Good to know" doesn't render |
+| `refund_policy` | Refunds section doesn't render |
+
+The event queries select these columns separately and retry without them on
+error, so a pending migration can't drop the events page to static seed data.
+
 ## Tests
 ```
 for t in credits reports group-seed; do node supabase/tests/$t.test.mjs; done
