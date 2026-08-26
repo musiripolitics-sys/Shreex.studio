@@ -62,6 +62,28 @@ valid and the pages degrade cleanly until it runs:
 The event queries select these columns separately and retry without them on
 error, so a pending migration can't drop the events page to static seed data.
 
+## Chapters — one-time setup
+Re-running `schema.sql` adds `communities`, `community_members`, and the
+`community_id` columns on events and posts. Chapters are created from the
+admin console; until at least one exists, `/communities` shows an empty state
+and everything else is unchanged.
+
+Seed a first chapter directly if you prefer:
+```sql
+insert into communities (slug, name, kind, city, tagline, created_by)
+values ('chennai', 'Techxfluence Chennai', 'city', 'Chennai',
+        'Where Chennai builds.', (select id from users where email = 'you@…'));
+
+-- Make yourself its organiser
+insert into community_members (community_id, user_id, role)
+select c.id, u.id, 'organizer' from communities c, users u
+ where c.slug = 'chennai' and u.email = 'you@…';
+
+-- Attach existing events to it by city
+update events set community_id = (select id from communities where slug='chennai')
+ where city = 'Chennai' and community_id is null;
+```
+
 ## Tests
 ```
 for t in credits reports group-seed; do node supabase/tests/$t.test.mjs; done

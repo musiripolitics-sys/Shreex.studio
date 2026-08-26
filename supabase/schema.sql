@@ -2466,3 +2466,37 @@ revoke all on function public.leave_community(uuid) from public;
 grant execute on function public.leave_community(uuid) to authenticated;
 
 revoke all on function public.sync_community_member_count() from public;
+
+
+-- ============================================================
+-- Social proof: who's coming
+-- ============================================================
+-- Attendance counts are aggregate and safe to show publicly. Names are not,
+-- so only members who opted into the directory (users.discoverable) are ever
+-- named, and only to signed-in viewers. Definer because a member can't read
+-- other people's registrations under RLS.
+create or replace function public.event_attendance(p_event_ids uuid[])
+returns table (event_id uuid, going int, names text[])
+language sql stable security definer set search_path = public
+as $$
+  select
+    e.id as event_id,
+    coalesce(g.going, 0)::int as going,
+    case
+      when auth.uid() is null then '{}'::text[]
+      else coalesce(g.names, '{}'::text[])
+    end as names
+  from unnest(p_event_ids) as e(id)
+  left join lateral (
+    select
+      count(*)::int as going,
+      (array_agg(u.full_name order by r.registered_at)
+         filter (where u.discoverable and u.full_name is not null))[1:5] as names
+    from public.registrations r
+    left join public.users u on u.id = r.user_id
+    where r.event_id = e.id
+      and r.status in ('registered','attended')
+  ) g on true;
+$$;
+
+grant execute on function public.event_attendance(uuid[]) to anon, authenticated;
