@@ -1583,6 +1583,91 @@ alter table public.badges enable row level security;
 alter table public.user_badges enable row level security;
 
 
+
+-- ---------- Reports ----------
+-- Admins could already delete a post; nothing told them one needed deleting.
+-- A report notifies every admin and keeps a row so the queue survives a
+-- dismissed notification.
+create table if not exists public.post_reports (
+  id          uuid primary key default gen_random_uuid(),
+  post_id     uuid references public.posts(id) on delete cascade,
+  comment_id  uuid references public.post_comments(id) on delete cascade,
+  reporter_id uuid not null references public.users(id) on delete cascade,
+  reason      text,
+  resolved    boolean not null default false,
+  created_at  timestamptz not null default now(),
+  -- Exactly one target.
+  constraint post_reports_one_target check (num_nonnulls(post_id, comment_id) = 1)
+);
+create index if not exists post_reports_open_idx on public.post_reports(created_at desc) where not resolved;
+create unique index if not exists post_reports_once_post_key
+  on public.post_reports(post_id, reporter_id) where post_id is not null;
+create unique index if not exists post_reports_once_comment_key
+  on public.post_reports(comment_id, reporter_id) where comment_id is not null;
+
+-- File a report. Runs as definer so it can notify admins, which the reporter
+-- has no rights to do directly.
+create or replace function public.report_content(
+  p_post_id uuid, p_comment_id uuid, p_reason text
+) returns jsonb
+language plpgsql security definer set search_path = public
+as $$
+declare
+  v_uid   uuid := auth.uid();
+  v_admin record;
+  v_body  text;
+begin
+  if v_uid is null then
+    return jsonb_build_object('status', 'denied', 'message', 'Sign in to report this.');
+  end if;
+  if num_nonnulls(p_post_id, p_comment_id) <> 1 then
+    return jsonb_build_object('status', 'denied', 'message', 'Nothing to report.');
+  end if;
+
+  insert into public.post_reports (post_id, comment_id, reporter_id, reason)
+  values (p_post_id, p_comment_id, v_uid, nullif(trim(coalesce(p_reason, '')), ''))
+  on conflict do nothing;
+
+  if not found then
+    -- Already reported by this person; don't notify admins twice.
+    return jsonb_build_object('status', 'ok', 'message', 'You already reported this.');
+  end if;
+
+  v_body := coalesce(nullif(trim(coalesce(p_reason, '')), ''), 'No reason given.');
+
+  for v_admin in
+    select ur.user_id from public.user_roles ur where ur.role = 'admin'
+  loop
+    perform public.notify(v_admin.user_id, 'report', 'Content reported',
+      v_body, '/admin?tab=reports');
+  end loop;
+
+  return jsonb_build_object('status', 'ok', 'message', 'Reported. Thanks — an admin will take a look.');
+end;
+$$;
+
+-- Admin: close a report out.
+create or replace function public.resolve_report(p_report_id uuid)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_admin() then raise exception 'FORBIDDEN'; end if;
+  update public.post_reports set resolved = true where id = p_report_id;
+end;
+$$;
+
+revoke all on function public.report_content(uuid, uuid, text) from public;
+grant execute on function public.report_content(uuid, uuid, text) to authenticated;
+
+revoke all on function public.resolve_report(uuid) from public;
+grant execute on function public.resolve_report(uuid) to authenticated;
+
+alter table public.post_reports enable row level security;
+
+drop policy if exists "admin reads reports" on public.post_reports;
+create policy "admin reads reports" on public.post_reports
+  for select using (public.is_admin() or auth.uid() = reporter_id);
+
+
 -- ============================================================
 -- Row level security
 -- ============================================================
