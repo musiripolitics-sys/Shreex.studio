@@ -2500,3 +2500,27 @@ as $$
 $$;
 
 grant execute on function public.event_attendance(uuid[]) to anon, authenticated;
+
+
+-- ============================================================
+-- Email delivery failures
+-- ============================================================
+-- Sends are best-effort so a mail outage never breaks a registration, but
+-- "best-effort" previously meant console.error and nothing else — which is how
+-- a dead SMTP password went unnoticed for weeks. Failures are recorded here
+-- and surfaced in the admin console.
+create table if not exists public.email_failures (
+  id         uuid primary key default gen_random_uuid(),
+  recipient  text not null,
+  subject    text,
+  error      text,
+  created_at timestamptz not null default now()
+);
+create index if not exists email_failures_recent_idx
+  on public.email_failures(created_at desc);
+
+alter table public.email_failures enable row level security;
+
+drop policy if exists "admin reads email failures" on public.email_failures;
+create policy "admin reads email failures" on public.email_failures
+  for select using (public.is_admin());

@@ -84,6 +84,25 @@ update events set community_id = (select id from communities where slug='chennai
  where city = 'Chennai' and community_id is null;
 ```
 
+## Email
+```
+npm run check:smtp                 # verify credentials, send nothing
+npm run check:smtp you@example.com # also send one test message
+```
+Prints the exact SMTP response, so a rejected password can be told apart from
+a network problem. Never prints the password itself.
+
+Sends are best-effort and never break a registration, but failures are now
+recorded in `email_failures` and the admin console shows a banner when any
+occurred in the last 7 days.
+
+**Google Workspace notes.** `SMTP_PASS` must be a 16-character App Password,
+not the account password, and the account needs 2-Step Verification on. App
+Passwords are revoked whenever the account password changes. An alias or
+Google Group cannot authenticate at all — authenticate as a real mailbox and
+keep the alias in `EMAIL_FROM`, with the alias added under Gmail →
+Settings → Accounts → "Send mail as".
+
 ## Tests
 ```
 for t in credits reports group-seed; do node supabase/tests/$t.test.mjs; done

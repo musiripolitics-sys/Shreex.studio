@@ -57,8 +57,32 @@ async function send(to: string, subject: string, html: string): Promise<void> {
   try {
     await transporter.sendMail({ from: FROM, to, subject, html });
   } catch (err) {
-    // Best-effort: never let an email failure break the main flow.
+    // Best-effort: never let an email failure break the main flow — but
+    // record it, because a silent failure is how a dead SMTP password goes
+    // unnoticed for weeks.
     console.error(`[email] failed to send "${subject}" to ${to}:`, err);
+    await recordFailure(to, subject, err);
+  }
+}
+
+/** Log a delivery failure for the admin console. Never throws. */
+async function recordFailure(to: string, subject: string, err: unknown) {
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !key) return;
+
+    const { createClient } = await import("@supabase/supabase-js");
+    const admin = createClient(url, key, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    await admin.from("email_failures").insert({
+      recipient: to,
+      subject,
+      error: err instanceof Error ? err.message.slice(0, 500) : String(err).slice(0, 500),
+    });
+  } catch {
+    // If even the logging fails, the console line above is all we get.
   }
 }
 
