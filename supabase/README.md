@@ -7,6 +7,20 @@ schema.sql          -- everything: enums, tables, indexes, functions, triggers, 
 Run `schema.sql` once against a fresh Supabase project. It is idempotent and
 ordered by dependency, so it can also be re-run over an existing database.
 
+## If schema.sql fails with a syntax error
+Postgres parses an entire multi-statement script *before* executing any of it,
+so a single syntax error anywhere aborts the whole run — and the line it
+reports is where the error is, not where it gave up.
+
+`parts/` holds the same schema split at statement boundaries. Run
+`parts/01.sql` … `parts/06.sql` in order in the Supabase SQL editor; whichever
+part fails narrows the problem from 2 200 lines to a couple of hundred. Each
+part is idempotent, and applying all six is equivalent to running `schema.sql`
+once (verified: same 38 tables, 83 policies).
+
+Note the Postgres version when reporting a failure — this schema is verified
+against PostgreSQL 18, and Supabase projects commonly run 15 or 17.
+
 ## Community credits — one-time setup
 The community section of `schema.sql` adds credits, gates and paid downloads.
 To turn it on:
