@@ -116,29 +116,6 @@ body {
   text-wrap: balance;
 }
 
-/* ── The Intersection ──────────────────────────────────────────────
-   TXF's mark is an X and the promise is "we connect", so the page is built
-   on crossings — but structurally, not decoratively. Sections meet at an
-   angle instead of a flat rule, and content cascades along a diagonal.
-   An earlier version also drew crossing hairlines behind the content; they
-   cut across photographs and read as artifacts, so they were removed. The
-   idea survives in the geometry, which is where it belonged. */
-
-/* Angled section edges. The clip is in viewport-width units so the slope
-   stays constant across breakpoints instead of getting steeper on phones. */
-.edge-b {
-  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 3.5vw), 0 100%);
-}
-.edge-t {
-  clip-path: polygon(0 3.5vw, 100% 0, 100% 100%, 0 100%);
-}
-.edge-tb {
-  clip-path: polygon(0 3.5vw, 100% 0, 100% calc(100% - 3.5vw), 0 100%);
-}
-/* Sections using an angled edge need extra padding so content clears the
-   slope; the clip cuts the box, not the layout. */
-.edge-pad-b { padding-bottom: calc(3.5vw + 3rem); }
-.edge-pad-t { padding-top: calc(3.5vw + 3rem); }
 
 
 /* Oversized section numerals sitting behind their content. */
