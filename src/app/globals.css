@@ -140,16 +140,18 @@ body {
 .flip {
   perspective: 1200px;
 }
+/* The faces share one grid cell rather than being absolutely positioned, so
+   the card is exactly as tall as its tallest face at every width. A fixed
+   height had to allow for the narrowest column — where the copy wraps most —
+   which left a large gap under the text on wide screens. */
 .flip-inner {
-  position: relative;
+  display: grid;
   width: 100%;
-  height: 100%;
   transform-style: preserve-3d;
   transition: transform 600ms cubic-bezier(0.22, 0.9, 0.3, 1);
 }
 .flip-face {
-  position: absolute;
-  inset: 0;
+  grid-area: 1 / 1;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   overflow: hidden;
@@ -171,11 +173,9 @@ body {
 @media not all and (hover: hover) {
   /* Height is fixed only so the two faces can overlap; without a flip the
      card sizes to its content instead of clipping it. */
-  .flip { height: auto; }
-  .flip-inner { transform: none; height: auto; }
-  .flip-face { position: relative; inset: auto; backface-visibility: visible; }
+  .flip-inner { transform: none; }
+  .flip-face { backface-visibility: visible; }
   .flip-back { display: none; }
-  .flip-front { aspect-ratio: 16 / 10; }
 }
 
 @media (prefers-reduced-motion: reduce) {
