@@ -117,9 +117,12 @@ body {
 }
 
 /* ── The Intersection ──────────────────────────────────────────────
-   TXF's mark is an X and the promise is "we connect", so the page is
-   built on crossings: sections meet at an angle instead of a flat rule,
-   and a diagonal runs behind the places where content meets. */
+   TXF's mark is an X and the promise is "we connect", so the page is built
+   on crossings — but structurally, not decoratively. Sections meet at an
+   angle instead of a flat rule, and content cascades along a diagonal.
+   An earlier version also drew crossing hairlines behind the content; they
+   cut across photographs and read as artifacts, so they were removed. The
+   idea survives in the geometry, which is where it belonged. */
 
 /* Angled section edges. The clip is in viewport-width units so the slope
    stays constant across breakpoints instead of getting steeper on phones. */
@@ -137,30 +140,6 @@ body {
 .edge-pad-b { padding-bottom: calc(3.5vw + 3rem); }
 .edge-pad-t { padding-top: calc(3.5vw + 3rem); }
 
-/* Two hairlines crossing — the X, used as a background device. */
-.cross-rule {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-.cross-rule::before,
-.cross-rule::after {
-  content: "";
-  position: absolute;
-  left: -20%;
-  right: -20%;
-  top: 50%;
-  height: 1px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    color-mix(in srgb, var(--color-brand) 45%, transparent),
-    transparent
-  );
-}
-.cross-rule::before { transform: rotate(14deg); }
-.cross-rule::after  { transform: rotate(-14deg); }
 
 /* Oversized section numerals sitting behind their content. */
 .numeral {
