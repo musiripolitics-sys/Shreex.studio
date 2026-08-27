@@ -115,3 +115,63 @@ body {
 .text-balance {
   text-wrap: balance;
 }
+
+/* ── The Intersection ──────────────────────────────────────────────
+   TXF's mark is an X and the promise is "we connect", so the page is
+   built on crossings: sections meet at an angle instead of a flat rule,
+   and a diagonal runs behind the places where content meets. */
+
+/* Angled section edges. The clip is in viewport-width units so the slope
+   stays constant across breakpoints instead of getting steeper on phones. */
+.edge-b {
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 3.5vw), 0 100%);
+}
+.edge-t {
+  clip-path: polygon(0 3.5vw, 100% 0, 100% 100%, 0 100%);
+}
+.edge-tb {
+  clip-path: polygon(0 3.5vw, 100% 0, 100% calc(100% - 3.5vw), 0 100%);
+}
+/* Sections using an angled edge need extra padding so content clears the
+   slope; the clip cuts the box, not the layout. */
+.edge-pad-b { padding-bottom: calc(3.5vw + 3rem); }
+.edge-pad-t { padding-top: calc(3.5vw + 3rem); }
+
+/* Two hairlines crossing — the X, used as a background device. */
+.cross-rule {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.cross-rule::before,
+.cross-rule::after {
+  content: "";
+  position: absolute;
+  left: -20%;
+  right: -20%;
+  top: 50%;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in srgb, var(--color-brand) 45%, transparent),
+    transparent
+  );
+}
+.cross-rule::before { transform: rotate(14deg); }
+.cross-rule::after  { transform: rotate(-14deg); }
+
+/* Oversized section numerals sitting behind their content. */
+.numeral {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 0.8;
+  letter-spacing: -0.05em;
+  color: transparent;
+  -webkit-text-stroke: 1px color-mix(in srgb, var(--color-fg) 14%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-float-up, .animate-marquee { animation: none; }
+}
