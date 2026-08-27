@@ -131,3 +131,53 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .animate-float-up, .animate-marquee { animation: none; }
 }
+
+/* ── Flip cards ────────────────────────────────────────────────────
+   Used by "What we do". The front carries the photograph, the back the
+   detail. Gated on `hover: hover` rather than a breakpoint: a touch device
+   has no hover state, so it keeps a plain card with the text always visible
+   instead of hiding content behind a gesture that doesn't exist. */
+.flip {
+  perspective: 1200px;
+}
+.flip-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 600ms cubic-bezier(0.22, 0.9, 0.3, 1);
+}
+.flip-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow: hidden;
+  border-radius: inherit;
+}
+.flip-back {
+  transform: rotateY(180deg);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .flip:hover .flip-inner,
+  .flip:focus-within .flip-inner {
+    transform: rotateY(180deg);
+  }
+}
+
+/* Without hover, both faces stack in normal flow and everything stays read-
+   able — no rotation, no absolutely positioned faces. */
+@media not all and (hover: hover) {
+  /* Height is fixed only so the two faces can overlap; without a flip the
+     card sizes to its content instead of clipping it. */
+  .flip { height: auto; }
+  .flip-inner { transform: none; height: auto; }
+  .flip-face { position: relative; inset: auto; backface-visibility: visible; }
+  .flip-back { display: none; }
+  .flip-front { aspect-ratio: 16 / 10; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flip-inner { transition: none; }
+}
