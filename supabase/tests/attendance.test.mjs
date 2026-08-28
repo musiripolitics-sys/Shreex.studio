@@ -38,12 +38,17 @@ let r = (await q(`select * from public.event_attendance(array['${E}']::uuid[])`)
 ok(r.going === 2, "count is public (2 going)");
 ok(Array.isArray(r.names) && r.names.length === 0, "but no names are exposed");
 
-console.log("\nSigned in:");
+console.log("\nSigned in, free tier:");
 await db.exec(`set request.jwt.claim.sub = '${U1}';`);
 r = (await q(`select * from public.event_attendance(array['${E}']::uuid[])`))[0];
 ok(r.going === 2, "count still 2");
-ok(r.names.length === 1 && r.names[0] === "Opted In", "only the member who opted in is named");
-ok(!r.names.includes("Opted Out"), "the opted-out member is never named");
+ok(r.names.length === 0, "names are a paid perk — a free member gets none");
+
+console.log("\nSigned in, paid tier:");
+await db.exec(`insert into public.memberships(user_id,tier,status) values ('${U1}','Pro','active');`);
+r = (await q(`select * from public.event_attendance(array['${E}']::uuid[])`))[0];
+ok(r.names.length === 1 && r.names[0] === "Opted In", "a Pro member sees the member who opted in");
+ok(!r.names.includes("Opted Out"), "the opted-out member is never named, even to Pro");
 
 console.log("\nEvent with nobody:");
 const E2="55555555-5555-5555-5555-555555555555";

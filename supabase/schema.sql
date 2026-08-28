@@ -2524,3 +2524,86 @@ alter table public.email_failures enable row level security;
 drop policy if exists "admin reads email failures" on public.email_failures;
 create policy "admin reads email failures" on public.email_failures
   for select using (public.is_admin());
+
+
+-- ============================================================
+-- Membership: gate visibility, not attendance
+-- ============================================================
+-- Paid tiers used to buy free event entry, which is worth nothing in a month
+-- with no paid events. They now buy sight of the community instead: who is
+-- coming to an event, and the member directory. That value doesn't depend on
+-- how full the calendar happens to be.
+
+/** The caller's active paid tier, or null. Expired memberships don't count. */
+create or replace function public.member_tier()
+returns text
+language sql stable security definer set search_path = public
+as $$
+  select m.tier::text
+    from public.memberships m
+   where m.user_id = auth.uid()
+     and m.status = 'active'
+     and (m.renews_at is null or m.renews_at >= now())
+     and m.tier::text in ('Pro','Elite')
+   limit 1;
+$$;
+
+create or replace function public.is_paid_member()
+returns boolean
+language sql stable security definer set search_path = public
+as $$
+  select public.is_admin() or public.member_tier() is not null;
+$$;
+
+grant execute on function public.member_tier()     to authenticated;
+grant execute on function public.is_paid_member()  to authenticated;
+
+-- Attendee names become a paid perk. The count stays public — it's aggregate,
+-- and it's what makes an event look alive to someone deciding whether to come.
+create or replace function public.event_attendance(p_event_ids uuid[])
+returns table (event_id uuid, going int, names text[])
+language sql stable security definer set search_path = public
+as $$
+  select
+    e.id as event_id,
+    coalesce(g.going, 0)::int as going,
+    case
+      when not public.is_paid_member() then '{}'::text[]
+      else coalesce(g.names, '{}'::text[])
+    end as names
+  from unnest(p_event_ids) as e(id)
+  left join lateral (
+    select
+      count(*)::int as going,
+      (array_agg(u.full_name order by r.registered_at)
+         filter (where u.discoverable and u.full_name is not null))[1:5] as names
+    from public.registrations r
+    left join public.users u on u.id = r.user_id
+    where r.event_id = e.id
+      and r.status in ('registered','attended')
+  ) g on true;
+$$;
+
+-- The directory becomes a paid perk too. Free members see the page and what
+-- it's for; they just don't get the rows.
+create or replace function public.get_directory()
+returns table (
+  id uuid, full_name text, city text, bio text, linkedin_url text, primary_role text
+)
+language sql stable security definer set search_path = public
+as $$
+  select u.id, u.full_name, u.city, u.bio, u.linkedin_url, u.primary_role::text
+  from public.users u
+  where public.is_paid_member()
+    and u.discoverable = true
+    and (
+      u.points >= 100
+      or exists (
+        select 1 from public.memberships m
+         where m.user_id = u.id and m.status = 'active' and m.tier::text = 'Elite'
+      )
+    );
+$$;
+
+grant execute on function public.event_attendance(uuid[]) to anon, authenticated;
+grant execute on function public.get_directory() to authenticated;
