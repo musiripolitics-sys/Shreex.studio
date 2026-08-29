@@ -1731,6 +1731,11 @@ alter table public.host_submissions add column if not exists tags text[] not nul
 -- otherwise try to read it as the start of a type name.
 alter table public.host_submissions add column if not exists "time" text;
 
+-- Hosts leave a phone contact alongside their email so the review team can
+-- reach them quickly. Nullable so older submissions predating this column stay
+-- valid; the submission form requires it going forward.
+alter table public.host_submissions add column if not exists organizer_phone text;
+
 -- Tags are the segments the seven fixed categories can't express — "react",
 -- "beginner", "students welcome". Normalised to lowercase on write by the app.
 alter table public.events add column if not exists tags text[] not null default '{}';
