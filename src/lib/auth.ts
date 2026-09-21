@@ -44,7 +44,7 @@ export const isEmployee = cache(async (): Promise<boolean> => {
   return !error && data === true;
 });
 
-export type AppRole = "admin" | "host" | "member";
+export type AppRole = "admin" | "host" | "employee" | "member";
 
 /**
  * The current user's effective role, used for theming and navigation.
@@ -70,5 +70,6 @@ export const getUserRole = cache(async (): Promise<AppRole> => {
   const role = profile?.primary_role;
   if (role === "admin" || adminRow) return "admin";
   if (role === "event_host") return "host";
+  if (role === "employee") return "employee";
   return "member";
 });

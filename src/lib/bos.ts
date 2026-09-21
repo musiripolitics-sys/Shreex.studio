@@ -160,11 +160,3 @@ export type DashboardSummary = {
   goals: Partial<Record<BosStatus, number>>;
   range: { from: string; to: string };
 };
-
-/** Every section of the BOS, for the module sub-navigation. */
-export const OS_NAV: { href: string; label: string; icon: string; group: string }[] = [
-  { href: "/admin/os", label: "Dashboard", icon: "home", group: "Overview" },
-  { href: "/admin/os/roadmap", label: "90-Day Roadmap", icon: "rocket", group: "Overview" },
-  { href: "/admin/os/tasks", label: "Tasks", icon: "check", group: "Overview" },
-  { href: "/admin/os/finance", label: "Finance", icon: "trophy", group: "Money" },
-];
