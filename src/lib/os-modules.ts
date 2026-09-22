@@ -381,6 +381,27 @@ export const MODULES: Record<string, ModuleConfig> = {
     ],
   },
 
+  empkpis: {
+    key: "empkpis", table: "employee_kpis", title: "Employee KPIs",
+    desc: "Set KPI targets and actuals per employee. No rankings — just progress.",
+    icon: "medal", group: "People", refs: ["owner"],
+    order: { col: "period", asc: false },
+    columns: [
+      { key: "employee_id", label: "Employee", type: "owner" },
+      { key: "kpi_name", label: "KPI" },
+      { key: "period", label: "Period", type: "date" },
+      { key: "target", label: "Target", type: "number", align: "right" },
+      { key: "actual", label: "Actual", type: "number", align: "right" },
+    ],
+    fields: [
+      { key: "employee_id", label: "Employee", type: "owner", required: true },
+      { key: "kpi_name", label: "KPI name", type: "text", required: true, span2: true },
+      { key: "period", label: "Period (month)", type: "date" },
+      { key: "target", label: "Target", type: "number" },
+      { key: "actual", label: "Actual", type: "number" },
+    ],
+  },
+
   product: {
     key: "product", table: "app_modules", title: "Application Development",
     desc: "Product control center — modules, features, environment and bugs.",
@@ -697,6 +718,7 @@ export const OS_SECTIONS: NavSection[] = [
       { href: "/admin/os", label: "Dashboard", icon: "home" },
       { href: "/admin/os/roadmap", label: "90-Day Roadmap", icon: "rocket" },
       { href: "/admin/os/tasks", label: "Tasks", icon: "check" },
+      { href: "/admin/os/reviews", label: "Reviews", icon: "clock" },
       { href: "/admin/os/calendar", label: "Calendar", icon: "calendar" },
     ],
   },
@@ -712,7 +734,7 @@ export const OS_SECTIONS: NavSection[] = [
       m("ambassadors"),
     ],
   },
-  { label: "People", items: [m("people"), m("hiring")] },
+  { label: "People", items: [m("people"), m("hiring"), m("empkpis")] },
   { label: "Product", items: [m("product")] },
   { label: "Governance", items: [m("approvals"), m("risks"), m("legal"), m("sops"), m("kpis"), m("audit")] },
   { label: "Operations", items: [m("vendors"), m("assets"), m("inventory"), m("competitors"), m("feedback")] },
