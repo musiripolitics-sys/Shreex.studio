@@ -673,6 +673,24 @@ export const MODULES: Record<string, ModuleConfig> = {
     ],
   },
 
+  dependencies: {
+    key: "dependencies", table: "dependencies", title: "Dependencies",
+    desc: "Track dependencies between activities. Blocked work shows what it waits on.",
+    icon: "nodes", group: "Governance",
+    order: { col: "created_at", asc: false },
+    columns: [
+      { key: "from_type", label: "Activity", sub: "note" },
+      { key: "to_type", label: "Depends on", type: "chip" },
+      { key: "status", label: "Status", type: "chip" },
+    ],
+    fields: [
+      { key: "from_type", label: "Activity / task", type: "text", required: true, span2: true },
+      { key: "to_type", label: "Depends on", type: "text", required: true, span2: true },
+      { key: "note", label: "Note", type: "textarea", span2: true },
+      { key: "status", label: "Status", type: "select", options: ["open", "cleared"] },
+    ],
+  },
+
   audit: {
     key: "audit", table: "audit_log", title: "Audit Log",
     desc: "Every important Business OS action, most recent first.",
@@ -725,6 +743,13 @@ export const OS_SECTIONS: NavSection[] = [
   { label: "Money", items: [{ href: "/admin/os/finance", label: "Finance", icon: "trophy" }] },
   { label: "Marketing", items: [m("campaigns"), m("content"), m("podcast")] },
   {
+    label: "Events",
+    items: [
+      { href: "/admin/os/events", label: "Events", icon: "calendar" },
+      { href: "/admin/os/hosts", label: "Hosts", icon: "mic" },
+    ],
+  },
+  {
     label: "Growth",
     items: [
       m("crm"),
@@ -736,7 +761,7 @@ export const OS_SECTIONS: NavSection[] = [
   },
   { label: "People", items: [m("people"), m("hiring"), m("empkpis")] },
   { label: "Product", items: [m("product")] },
-  { label: "Governance", items: [m("approvals"), m("risks"), m("legal"), m("sops"), m("kpis"), m("audit")] },
+  { label: "Governance", items: [m("approvals"), m("risks"), m("dependencies"), m("legal"), m("sops"), m("kpis"), m("audit")] },
   { label: "Operations", items: [m("vendors"), m("assets"), m("inventory"), m("competitors"), m("feedback")] },
   {
     label: "Insights",

@@ -44,7 +44,16 @@ export const isEmployee = cache(async (): Promise<boolean> => {
   return !error && data === true;
 });
 
-export type AppRole = "admin" | "host" | "employee" | "member";
+/** Whether the current user is a College Ambassador (for the ambassador portal). */
+export const isAmbassador = cache(async (): Promise<boolean> => {
+  const user = await getCurrentUser();
+  if (!user) return false;
+  const supabase = await createClient();
+  const { data } = await supabase.from("users").select("primary_role").eq("id", user.id).maybeSingle();
+  return data?.primary_role === "college_ambassador";
+});
+
+export type AppRole = "admin" | "host" | "employee" | "ambassador" | "member";
 
 /**
  * The current user's effective role, used for theming and navigation.
@@ -71,5 +80,6 @@ export const getUserRole = cache(async (): Promise<AppRole> => {
   if (role === "admin" || adminRow) return "admin";
   if (role === "event_host") return "host";
   if (role === "employee") return "employee";
+  if (role === "college_ambassador") return "ambassador";
   return "member";
 });
