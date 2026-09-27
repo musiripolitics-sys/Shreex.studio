@@ -728,47 +728,79 @@ const m = (key: string): NavItem => ({
   icon: MODULES[key].icon,
 });
 
-/** Grouped navigation for the Business OS module bar. */
+/**
+ * Grouped navigation for the Business OS.
+ *
+ * Grouped by the job you're doing, not by the noun the table happens to be —
+ * the previous split had "Money" and "Product" holding one item each while
+ * "Governance" held seven unrelated ones, which is why nothing was findable.
+ * Every group now holds two or more related destinations.
+ */
 export const OS_SECTIONS: NavSection[] = [
   {
-    label: "Overview",
+    label: "Today",
     items: [
       { href: "/admin/os", label: "Dashboard", icon: "home" },
-      { href: "/admin/os/roadmap", label: "90-Day Roadmap", icon: "rocket" },
-      { href: "/admin/os/tasks", label: "Tasks", icon: "check" },
-      { href: "/admin/os/reviews", label: "Reviews", icon: "clock" },
-      { href: "/admin/os/calendar", label: "Calendar", icon: "calendar" },
+      { href: "/admin/os/alerts", label: "Alerts", icon: "bell" },
+      { href: "/admin/os/approvals", label: "Approvals", icon: "check" },
     ],
   },
-  { label: "Money", items: [{ href: "/admin/os/finance", label: "Finance", icon: "trophy" }] },
-  { label: "Marketing", items: [m("campaigns"), m("content"), m("podcast")] },
+  {
+    label: "Plan",
+    items: [
+      { href: "/admin/os/roadmap", label: "Roadmap", icon: "rocket" },
+      { href: "/admin/os/tasks", label: "Tasks", icon: "check" },
+      m("dependencies"),
+      { href: "/admin/os/calendar", label: "Calendar", icon: "calendar" },
+      { href: "/admin/os/reviews", label: "Reviews", icon: "clock" },
+    ],
+  },
   {
     label: "Events",
     items: [
       { href: "/admin/os/events", label: "Events", icon: "calendar" },
       { href: "/admin/os/hosts", label: "Hosts", icon: "mic" },
+      m("sops"),
     ],
   },
   {
-    label: "Growth",
+    label: "Money",
     items: [
-      m("crm"),
+      { href: "/admin/os/finance", label: "Finance", icon: "trophy" },
+      m("vendors"),
+    ],
+  },
+  {
+    label: "Grow",
+    items: [
       { href: "/admin/os/membership", label: "Membership", icon: "medal" },
+      m("crm"),
       m("partnerships"),
       m("influencers"),
       m("ambassadors"),
     ],
   },
-  { label: "People", items: [m("people"), m("hiring"), m("empkpis")] },
-  { label: "Product", items: [m("product")] },
-  { label: "Governance", items: [m("approvals"), m("risks"), m("dependencies"), m("legal"), m("sops"), m("kpis"), m("audit")] },
-  { label: "Operations", items: [m("vendors"), m("assets"), m("inventory"), m("competitors"), m("feedback")] },
+  {
+    label: "Marketing",
+    items: [m("campaigns"), m("content"), m("podcast"), m("competitors")],
+  },
+  {
+    label: "Team",
+    items: [m("people"), m("hiring"), m("empkpis")],
+  },
+  {
+    label: "Product",
+    items: [m("product"), m("feedback")],
+  },
+  {
+    label: "Govern",
+    items: [m("risks"), m("legal"), m("audit"), m("kpis"), m("assets"), m("inventory")],
+  },
   {
     label: "Insights",
     items: [
       { href: "/admin/os/analytics", label: "Analytics", icon: "nodes" },
       { href: "/admin/os/reports", label: "Reports", icon: "book" },
-      { href: "/admin/os/alerts", label: "Alerts", icon: "bell" },
     ],
   },
 ];
