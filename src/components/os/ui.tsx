@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { Icon } from "@/components/Icon";
 import {
   STATUS_META,
   PRIORITY_META,
@@ -78,6 +79,96 @@ export function KpiCard({
     "group block rounded-2xl border border-line bg-surface p-4 shadow-soft transition-all";
   return href ? (
     <Link href={href} className={`${base} hover:-translate-y-0.5 hover:border-brand/40`}>
+      {body}
+    </Link>
+  ) : (
+    <div className={base}>{body}</div>
+  );
+}
+
+/**
+ * A grouping card for the dashboard — an icon, a title/description, and a
+ * body of `PanelStat`s. Replaces bare `SectionHeading` + full-width grid: one
+ * visible boundary per topic instead of a continuous wall of tiles.
+ */
+export function Panel({
+  icon,
+  title,
+  desc,
+  tone = "default",
+  right,
+  className = "",
+  children,
+}: {
+  icon?: string;
+  title: string;
+  desc?: string;
+  tone?: "default" | "warn" | "brand";
+  right?: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
+  const iconTone = {
+    default: "bg-surface-2 text-muted",
+    warn: "bg-amber-100 text-amber-600",
+    brand: "bg-brand/10 text-brand-soft",
+  }[tone];
+  return (
+    <div className={`rounded-2xl border border-line bg-surface p-5 shadow-soft ${className}`}>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          {icon && (
+            <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${iconTone}`}>
+              <Icon name={icon} className="h-4 w-4" strokeWidth={1.8} />
+            </span>
+          )}
+          <div>
+            <h3 className="font-display text-sm font-semibold text-fg">{title}</h3>
+            {desc && <p className="mt-0.5 text-xs text-muted">{desc}</p>}
+          </div>
+        </div>
+        {right}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * A flat stat cell for inside a `Panel` — no border/shadow of its own (the
+ * panel already draws the boundary), just a hover tint so the grid reads as
+ * one dense, scannable block instead of nested cards.
+ */
+export function PanelStat({
+  label,
+  value,
+  sub,
+  href,
+  tone = "default",
+}: {
+  label: string;
+  value: ReactNode;
+  sub?: ReactNode;
+  href?: string;
+  tone?: "default" | "good" | "bad" | "warn" | "brand";
+}) {
+  const toneClass = {
+    default: "text-fg",
+    good: "text-green-600",
+    bad: "text-red-600",
+    warn: "text-amber-600",
+    brand: "text-brand-soft",
+  }[tone];
+  const body = (
+    <>
+      <p className="truncate text-[11px] font-medium text-faint">{label}</p>
+      <p className={`mt-1 font-display text-lg font-bold tabular-nums ${toneClass}`}>{value}</p>
+      {sub != null && <p className="mt-0.5 truncate text-[11px] text-muted">{sub}</p>}
+    </>
+  );
+  const base = "block rounded-xl p-2.5 transition-colors";
+  return href ? (
+    <Link href={href} className={`${base} hover:bg-surface-2`}>
       {body}
     </Link>
   ) : (

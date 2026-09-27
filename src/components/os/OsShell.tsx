@@ -56,11 +56,13 @@ export function OsShell({
                       : "text-muted hover:bg-surface-2 hover:text-fg"
                   }`}
                 >
-                  <Icon
-                    name={item.icon}
-                    className={`h-4 w-4 shrink-0 ${active ? "text-brand" : "text-faint"}`}
-                    strokeWidth={1.8}
-                  />
+                  <span
+                    className={`grid h-6 w-6 shrink-0 place-items-center rounded-md transition-colors ${
+                      active ? "bg-brand text-white" : "text-faint"
+                    }`}
+                  >
+                    <Icon name={item.icon} className="h-3.5 w-3.5" strokeWidth={1.8} />
+                  </span>
                   <span className="truncate">{item.label}</span>
                 </Link>
               );
