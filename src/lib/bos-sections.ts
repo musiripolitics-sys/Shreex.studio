@@ -1,8 +1,7 @@
 /**
- * Maps every key returned by the `bos_section_status()` RPC to where it lives
- * in the Business OS, grouped the same way the sidebar is. The dashboard
- * renders this list verbatim, so a section that exists in the nav but reports
- * no status is a visible gap rather than a silent omission.
+ * Shape of the `bos_section_status()` RPC payload, keyed by section.
+ * The dashboard reads individual keys from this to build its nine section
+ * cards; SECTION_GROUPS below still describes where each key lives.
  */
 export type SectionState = { total: number; open: number | null; overdue: number };
 export type SectionStatus = Record<string, SectionState | undefined>;
@@ -90,18 +89,3 @@ export const SECTION_GROUPS: { label: string; items: SectionRef[] }[] = [
     ],
   },
 ];
-
-/** Total overdue across every section, for the headline counter. */
-export function totalOverdue(status: SectionStatus): number {
-  return SECTION_GROUPS.flatMap((g) => g.items).reduce(
-    (sum, item) => sum + (status[item.key]?.overdue ?? 0),
-    0,
-  );
-}
-
-/** Sections holding no records at all — the "not started yet" list. */
-export function emptySections(status: SectionStatus): SectionRef[] {
-  return SECTION_GROUPS.flatMap((g) => g.items).filter(
-    (item) => (status[item.key]?.total ?? 0) === 0,
-  );
-}
