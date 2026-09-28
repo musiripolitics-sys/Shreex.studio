@@ -31,7 +31,7 @@ as $$
 $$;
 
 comment on function public.public_stats() is
-  'Aggregate counts for the public homepage. Returns numbers only, never rows.';
+  $c$Aggregate counts for the public homepage. Returns numbers only, never rows.$c$;
 
 revoke all on function public.public_stats() from public;
 grant execute on function public.public_stats() to anon, authenticated;
