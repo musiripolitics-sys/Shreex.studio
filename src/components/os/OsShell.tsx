@@ -45,6 +45,11 @@ export function OsShell({
   // The nav shows only what the grant allows, so an employee never sees a
   // door they cannot open. "Today" is ungated.
   const allowed = new Set(sections);
+  // An admin has ~35 destinations, so their sections stay collapsed behind a
+  // hover. An employee usually holds two or three, which fit expanded — and a
+  // section header that only reacts to hover reads as broken when clicked.
+  const expandAll = !isAdmin;
+
   const railSections = OS_SECTIONS.filter(
     (s) => s.label !== "Today" && allowed.has(s.label.toLowerCase()),
   );
@@ -86,17 +91,21 @@ export function OsShell({
 
         <div className="mx-4 my-2.5 h-px bg-line" />
 
-        <nav className="flex flex-col gap-0.5 px-2" onMouseLeave={() => setHovered(null)}>
+        <nav className="flex flex-col gap-0.5 overflow-y-auto px-2 pb-4" onMouseLeave={() => setHovered(null)}>
           {railSections.map((section) => (
-            <RailItem
-              key={section.label}
-              section={section}
-              active={activeSection?.label === section.label}
-              open={hovered === section.label}
-              onHover={() => setHovered(section.label)}
-              onDismiss={() => setHovered(null)}
-              isActive={isActive}
-            />
+            expandAll ? (
+              <ExpandedSection key={section.label} section={section} isActive={isActive} />
+            ) : (
+              <RailItem
+                key={section.label}
+                section={section}
+                active={activeSection?.label === section.label}
+                open={hovered === section.label}
+                onHover={() => setHovered(section.label)}
+                onDismiss={() => setHovered(null)}
+                isActive={isActive}
+              />
+            )
           ))}
         </nav>
       </aside>
@@ -200,6 +209,41 @@ export function OsShell({
         </header>
 
         <main className="min-w-0 flex-1 px-4 py-6 md:px-6 lg:px-8">{children}</main>
+      </div>
+    </div>
+  );
+}
+
+/** A section with its destinations listed inline, for people who hold few. */
+function ExpandedSection({
+  section,
+  isActive,
+}: {
+  section: NavSection;
+  isActive: (href: string) => boolean;
+}) {
+  return (
+    <div className="mb-2">
+      <p className="flex items-center gap-2 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-faint">
+        <Icon name={section.icon} className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
+        {section.label}
+      </p>
+      <div className="flex flex-col gap-0.5">
+        {section.items.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            aria-current={isActive(item.href) ? "page" : undefined}
+            className={`flex items-center gap-2.5 rounded-lg py-1.5 pl-7 pr-2.5 text-sm transition-colors ${
+              isActive(item.href)
+                ? "bg-brand/10 font-semibold text-brand-soft"
+                : "text-muted hover:bg-surface-2 hover:text-fg"
+            }`}
+          >
+            <Icon name={item.icon} className="h-4 w-4 shrink-0 text-faint" strokeWidth={1.8} />
+            <span className="truncate">{item.label}</span>
+          </Link>
+        ))}
       </div>
     </div>
   );
