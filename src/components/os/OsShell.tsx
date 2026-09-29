@@ -45,7 +45,10 @@ export function OsShell({
   return (
     <div className="flex min-h-screen bg-ink">
       {/* ── Rail ── */}
-      <aside className="relative z-40 hidden w-52 shrink-0 flex-col border-r border-line bg-surface lg:flex">
+      {/* Sticky to the viewport: the sidebar is the fixed frame you navigate
+          from, so it must not scroll away with the page under it. h-screen
+          plus overflow-y-auto keeps it usable on a very short window too. */}
+      <aside className="sticky top-0 z-40 hidden h-screen w-52 shrink-0 flex-col overflow-y-auto border-r border-line bg-surface lg:flex">
         <Link href="/admin/os" className="flex h-14 items-center gap-2.5 border-b border-line px-4">
           <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-brand text-[11px] font-bold text-white">
             OS
