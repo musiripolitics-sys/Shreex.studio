@@ -21,7 +21,15 @@ for (const line of fs.readFileSync(envPath, "utf8").split("\n")) {
   const t = line.trim();
   if (t.includes("=") && !t.startsWith("#")) {
     const i = t.indexOf("=");
-    env[t.slice(0, i).trim()] = t.slice(i + 1).trim();
+    let v = t.slice(i + 1).trim();
+    // Next.js strips matching surrounding quotes when it loads .env, so this
+    // must too — otherwise EMAIL_FROM arrives with literal quote characters
+    // and nodemailer reads the whole thing as one malformed address, which
+    // looks exactly like a server-side rejection.
+    if (v.length > 1 && ((v[0] === '"' && v.endsWith('"')) || (v[0] === "'" && v.endsWith("'")))) {
+      v = v.slice(1, -1);
+    }
+    env[t.slice(0, i).trim()] = v;
   }
 }
 
