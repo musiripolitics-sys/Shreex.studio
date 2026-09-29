@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "@/components/Icon";
@@ -35,7 +35,26 @@ export function OsShell({
 }) {
   const pathname = usePathname();
   const [drawer, setDrawer] = useState(false);
-  const [hovered, setHovered] = useState<string | null>(null);
+  // The panel is positioned fixed rather than absolute. The sidebar scrolls,
+  // and an absolutely positioned child of a scrolling box is clipped into it
+  // — which is why hovering a section used to make the sidebar scroll
+  // sideways instead of floating the list over the page.
+  const [flyout, setFlyout] = useState<{ label: string; x: number; y: number } | null>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelClose = useCallback(() => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+  }, []);
+  const openFlyout = useCallback((label: string, el: HTMLElement) => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    const r = el.getBoundingClientRect();
+    setFlyout({ label, x: r.right + 8, y: r.top });
+  }, []);
+  // A grace period, so crossing the gap to the panel does not close it.
+  const scheduleClose = useCallback(() => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => setFlyout(null), 140);
+  }, []);
 
   const isActive = (href: string) =>
     href === "/admin/os" ? pathname === "/admin/os" : pathname === href || pathname.startsWith(href + "/");
@@ -91,7 +110,7 @@ export function OsShell({
 
         <div className="mx-4 my-2.5 h-px bg-line" />
 
-        <nav className="flex flex-col gap-0.5 overflow-y-auto px-2 pb-4" onMouseLeave={() => setHovered(null)}>
+        <nav className="flex flex-col gap-0.5 overflow-y-auto px-2 pb-4">
           {railSections.map((section) => (
             expandAll ? (
               <ExpandedSection key={section.label} section={section} isActive={isActive} />
@@ -100,10 +119,10 @@ export function OsShell({
                 key={section.label}
                 section={section}
                 active={activeSection?.label === section.label}
-                open={hovered === section.label}
-                onHover={() => setHovered(section.label)}
-                onDismiss={() => setHovered(null)}
-                isActive={isActive}
+                open={flyout?.label === section.label}
+                onOpen={openFlyout}
+                onLeave={scheduleClose}
+                onDismiss={() => setFlyout(null)}
               />
             )
           ))}
@@ -210,6 +229,17 @@ export function OsShell({
 
         <main className="min-w-0 flex-1 px-4 py-6 md:px-6 lg:px-8">{children}</main>
       </div>
+
+      {flyout && (
+        <SectionFlyout
+          section={OS_SECTIONS.find((sec) => sec.label === flyout.label)!}
+          x={flyout.x}
+          y={flyout.y}
+          isActive={isActive}
+          onEnter={cancelClose}
+          onLeave={scheduleClose}
+        />
+      )}
     </div>
   );
 }
@@ -249,75 +279,98 @@ function ExpandedSection({
   );
 }
 
-/** One rail icon, with its section list revealed on hover. */
+/** A section row. Hovering it asks the shell to float its list beside it. */
 function RailItem({
   section,
   active,
   open,
-  onHover,
+  onOpen,
+  onLeave,
   onDismiss,
-  isActive,
 }: {
   section: NavSection;
   active: boolean;
   open: boolean;
-  onHover: () => void;
+  onOpen: (label: string, el: HTMLElement) => void;
+  onLeave: () => void;
   onDismiss: () => void;
-  isActive: (href: string) => boolean;
 }) {
   return (
-    // Hover is the fast path, but focus opens it too so the rail is reachable
-    // by keyboard, and Escape closes it without needing the mouse.
-    <div
-      className="relative"
-      onMouseEnter={onHover}
-      onFocus={onHover}
+    <button
+      type="button"
+      aria-expanded={open}
+      onMouseEnter={(e) => onOpen(section.label, e.currentTarget)}
+      onFocus={(e) => onOpen(section.label, e.currentTarget)}
+      onMouseLeave={onLeave}
       onKeyDown={(e) => e.key === "Escape" && onDismiss()}
+      className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ${
+        active
+          ? "bg-brand/10 font-semibold text-brand-soft"
+          : open
+            ? "bg-surface-2 text-fg"
+            : "text-muted hover:bg-surface-2 hover:text-fg"
+      }`}
     >
-      <button
-        type="button"
-        aria-expanded={open}
-        className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ${
-          active
-            ? "bg-brand/10 font-semibold text-brand-soft"
-            : open
-              ? "bg-surface-2 text-fg"
-              : "text-muted hover:bg-surface-2 hover:text-fg"
-        }`}
-      >
-        <Icon name={section.icon} className="h-[17px] w-[17px] shrink-0" strokeWidth={1.8} />
-        <span className="flex-1 text-left">{section.label}</span>
-        <span className="text-[9px] text-faint">{section.items.length}</span>
-      </button>
+      <Icon name={section.icon} className="h-[17px] w-[17px] shrink-0" strokeWidth={1.8} />
+      <span className="flex-1 text-left">{section.label}</span>
+      <span className="text-[9px] text-faint">{section.items.length}</span>
+    </button>
+  );
+}
 
-      {/* A transparent bridge so the pointer can cross the gap without the
-          flyout closing underneath it. */}
-      {open && (
-        <>
-          <span className="absolute left-full top-0 h-full w-2" />
-          <div className="absolute left-full top-0 z-50 ml-2 w-56 overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
-            <p className="border-b border-line px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-faint">
-              {section.label}
-            </p>
-            <div className="p-1">
-              {section.items.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm transition-colors ${
-                    isActive(item.href)
-                      ? "bg-brand/10 font-semibold text-brand-soft"
-                      : "text-muted hover:bg-surface-2 hover:text-fg"
-                  }`}
-                >
-                  <Icon name={item.icon} className="h-4 w-4 shrink-0 text-faint" strokeWidth={1.8} />
-                  <span className="truncate">{item.label}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
+/**
+ * A section's destinations, floating above the page.
+ *
+ * Fixed, so no scrolling ancestor can clip it, and nudged up when it would
+ * otherwise run off the bottom of the window.
+ */
+function SectionFlyout({
+  section,
+  x,
+  y,
+  isActive,
+  onEnter,
+  onLeave,
+}: {
+  section: NavSection;
+  x: number;
+  y: number;
+  isActive: (href: string) => boolean;
+  onEnter: () => void;
+  onLeave: () => void;
+}) {
+  const estimated = 44 + section.items.length * 34;
+  const top =
+    typeof window === "undefined"
+      ? y
+      : Math.max(8, Math.min(y, window.innerHeight - estimated - 8));
+
+  return (
+    <div
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+      style={{ position: "fixed", left: x, top }}
+      className="z-[200] w-56 overflow-hidden rounded-xl border border-line bg-surface shadow-lg"
+    >
+      <p className="border-b border-line px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-faint">
+        {section.label}
+      </p>
+      <div className="p-1">
+        {section.items.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm transition-colors ${
+              isActive(item.href)
+                ? "bg-brand/10 font-semibold text-brand-soft"
+                : "text-muted hover:bg-surface-2 hover:text-fg"
+            }`}
+          >
+            <Icon name={item.icon} className="h-4 w-4 shrink-0 text-faint" strokeWidth={1.8} />
+            <span className="truncate">{item.label}</span>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
