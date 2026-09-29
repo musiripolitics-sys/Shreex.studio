@@ -136,6 +136,15 @@ const paths: Record<string, ReactNode> = {
       <path d="M18 16l4-4-4-4M22 12H10" />
     </>
   ),
+  // The bell means "somebody sent you something". Anything that means "this
+  // needs attention" uses the triangle, or the two read as the same thing.
+  warning: (
+    <>
+      <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
+      <path d="M12 9v4" strokeLinecap="round" />
+      <path d="M12 17h.01" strokeLinecap="round" />
+    </>
+  ),
   bell: (
     <>
       <path d="M6 9a6 6 0 0 1 12 0c0 4.5 1.5 5.5 2 6H4c.5-.5 2-1.5 2-6Z" />

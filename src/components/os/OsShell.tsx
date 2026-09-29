@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "@/components/Icon";
+import { NotificationBell } from "@/components/NotificationBell";
 import { OS_SECTIONS, type NavSection } from "@/lib/os-modules";
 
 /**
@@ -191,6 +192,9 @@ export function OsShell({
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5">
+            {/* Approvals and reviews are decided by somebody else and land
+                here; without this an employee had no way of hearing about it. */}
+            <NotificationBell />
             <TopAction
               href="/admin/os/approvals"
               icon="check"
@@ -200,7 +204,7 @@ export function OsShell({
             />
             <TopAction
               href="/admin/os/alerts"
-              icon="bell"
+              icon="warning"
               label="Alerts"
               count={alertCount}
               tone="warn"

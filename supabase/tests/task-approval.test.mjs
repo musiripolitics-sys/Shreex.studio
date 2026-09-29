@@ -12,7 +12,7 @@ create or replace function crypt(a text,b text) returns text language sql as $fn
 create or replace function gen_salt(a text) returns text language sql as $fn$ select 'x' $fn$;
 create domain citext as text;`);
 const strip=s=>s.replace(/create extension if not exists (pgcrypto|citext);/g,"");
-for (const f of ["schema.sql","migrations/0007_business_os.sql","migrations/0008_business_os_registries.sql","migrations/0009_business_os_reviews.sql","migrations/0010_business_os_coverage.sql","migrations/0011_business_os_chain.sql","migrations/0012_fix_dashboard_summary.sql","migrations/0015_task_comments.sql","migrations/0016_employee_access.sql","migrations/0017_staff_dashboard.sql","migrations/0018_scope_staff_reads.sql","migrations/0019_plan_section.sql","migrations/0020_task_approval.sql"]) await db.exec(strip(fs.readFileSync("supabase/"+f,"utf8")));
+for (const f of ["schema.sql","migrations/0007_business_os.sql","migrations/0008_business_os_registries.sql","migrations/0009_business_os_reviews.sql","migrations/0010_business_os_coverage.sql","migrations/0011_business_os_chain.sql","migrations/0012_fix_dashboard_summary.sql","migrations/0015_task_comments.sql","migrations/0016_employee_access.sql","migrations/0017_staff_dashboard.sql","migrations/0018_scope_staff_reads.sql","migrations/0019_plan_section.sql","migrations/0020_task_approval.sql","migrations/0021_review_notifications.sql"]) await db.exec(strip(fs.readFileSync("supabase/"+f,"utf8")));
 await db.exec(`alter table public.users enable row level security;`);
 await db.exec(`grant usage on schema public to anon, authenticated;
   grant select, insert, update, delete on all tables in schema public to anon, authenticated;
@@ -103,6 +103,26 @@ ok(err===null,"a rejected task can be resubmitted");
 console.log("\nWork finished before any of this existed:");
 ok(await (async()=>{const r=await one(`select count(*)::int c from public.tasks where status='completed' and approval_state<>'approved'`);return Number(r.c)===0;})(),
    "no completed task was left in a state its next edit would refuse");
+
+
+console.log("\nWho gets told:");
+const notifs=async u=>(await q(`select type, title, body from public.notifications where user_id='${u}' order by created_at`));
+await db.exec(`reset role;`);
+const priyaNotes=await notifs(E);
+ok(priyaNotes.some(n=>/^Approved: /.test(n.title)),`told when her work was approved (${priyaNotes.map(n=>n.title).join(" | ")||"nothing"})`);
+ok(priyaNotes.some(n=>/^Sent back: /.test(n.title)),"told when it was sent back");
+ok(priyaNotes.some(n=>/Needs the invoice/.test(n.body??"")),"and the reason travels with it");
+// The admin reviews her completed task.
+await as(A);
+await db.exec(`update public.task_reviews set outcome='met', quality=4, learning='Book the KYC slot a week earlier.' where task_id='${t1}';`);
+await db.exec(`reset role;`);
+const after=await notifs(E);
+ok(after.some(n=>n.type==='review'),`told when her work was reviewed (${after.filter(n=>n.type==='review').map(n=>n.title).join()||"nothing"})`);
+ok(after.some(n=>/Quality 4 of 5/.test(n.body??"")),"the rating is in the message");
+ok(after.some(n=>/Book the KYC slot/.test(n.body??"")),"so is the learning");
+// Nobody is told about their own action.
+const adminNotes=await notifs(A);
+ok(adminNotes.length===0,`the admin is not notified about their own decisions (${adminNotes.length})`);
 
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail?1:0);
