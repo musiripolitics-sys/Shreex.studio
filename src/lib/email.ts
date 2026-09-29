@@ -335,3 +335,142 @@ export async function sendHostDecision(opts: {
     );
   }
 }
+
+// ─────────────────────────── Business OS: tasks ───────────────────────────
+//
+// Work changes hands inside the OS, but people do not live in the OS. The
+// notification bell (0021) reaches whoever happens to open it; these reach
+// them where they actually are.
+
+const osUrl = (path: string) => `${process.env.NEXT_PUBLIC_SITE_URL || ""}${path}`;
+
+function button(href: string, label: string, colour = "#ff5a1f"): string {
+  return `<p style="margin:18px 0 0;">
+    <a href="${href}" style="display:inline-block;background:${colour};color:#fff;text-decoration:none;
+       font-weight:600;padding:11px 22px;border-radius:9999px;">${label}</a>
+  </p>`;
+}
+
+/** Facts table shared by the task emails, so they read the same way. */
+function facts(rows: [string, string | null | undefined][]): string {
+  const body = rows
+    .filter(([, v]) => v)
+    .map(
+      ([k, v]) =>
+        `<tr><td style="padding:4px 16px 4px 0;color:#8a897f;white-space:nowrap;">${k}</td><td>${v}</td></tr>`,
+    )
+    .join("");
+  return body ? `<table style="margin-top:14px;font-size:14px;color:#0e0e0c;">${body}</table>` : "";
+}
+
+const taskLabel = (code: string | null, title: string) =>
+  `${code ? `${code} · ` : ""}${title}`;
+
+export async function sendTaskAssigned(opts: {
+  to: string;
+  name: string;
+  code: string | null;
+  title: string;
+  description?: string | null;
+  dueDate?: string | null;
+  priority?: string | null;
+  goal?: string | null;
+  assignedBy?: string | null;
+  taskId: string;
+}): Promise<void> {
+  await send(
+    opts.to,
+    `Assigned to you: ${taskLabel(opts.code, opts.title)}`,
+    shell(
+      "You have a new task 📋",
+      `Hi ${opts.name}, ${opts.assignedBy ? `${opts.assignedBy} assigned` : "you have been assigned"}
+       <strong>${opts.title}</strong>.
+       ${opts.description ? `<p style="margin:14px 0 0;">${opts.description}</p>` : ""}
+       ${facts([
+         ["Due", opts.dueDate],
+         ["Priority", opts.priority],
+         ["Goal", opts.goal],
+       ])}
+       ${button(osUrl(`/admin/os/tasks?task=${opts.taskId}`), "Open the task")}`,
+    ),
+  );
+}
+
+export async function sendTaskDecision(opts: {
+  to: string;
+  name: string;
+  code: string | null;
+  title: string;
+  approved: boolean;
+  note?: string | null;
+  decidedBy?: string | null;
+  taskId: string;
+}): Promise<void> {
+  await send(
+    opts.to,
+    `${opts.approved ? "Approved" : "Sent back"}: ${taskLabel(opts.code, opts.title)}`,
+    shell(
+      opts.approved ? "Your work was approved ✅" : "Your work came back",
+      opts.approved
+        ? `Hi ${opts.name}, <strong>${opts.title}</strong> was approved${
+            opts.decidedBy ? ` by ${opts.decidedBy}` : ""
+          } and the task is now complete. Nothing more to do.
+           ${button(osUrl(`/admin/os/tasks?task=${opts.taskId}`), "See the task", "#16a34a")}`
+        : `Hi ${opts.name}, <strong>${opts.title}</strong> was sent back${
+            opts.decidedBy ? ` by ${opts.decidedBy}` : ""
+          } and needs another look.
+           ${opts.note ? `<p style="margin:14px 0 0;"><strong>Reason:</strong> ${opts.note}</p>` : ""}
+           ${button(osUrl(`/admin/os/tasks?task=${opts.taskId}`), "Pick it back up")}`,
+    ),
+  );
+}
+
+export async function sendTaskSubmitted(opts: {
+  to: string;
+  name: string;
+  code: string | null;
+  title: string;
+  submittedBy: string | null;
+  taskId: string;
+}): Promise<void> {
+  await send(
+    opts.to,
+    `Needs your approval: ${taskLabel(opts.code, opts.title)}`,
+    shell(
+      "A task is waiting on you",
+      `Hi ${opts.name}, ${opts.submittedBy ?? "Someone"} has finished
+       <strong>${opts.title}</strong> and submitted it for approval. It stays open
+       until you approve it.
+       ${button(osUrl(`/admin/os/tasks?task=${opts.taskId}`), "Review it")}`,
+    ),
+  );
+}
+
+export async function sendTaskReviewed(opts: {
+  to: string;
+  name: string;
+  code: string | null;
+  title: string;
+  outcome: "met" | "partial" | "missed";
+  quality?: number | null;
+  learning?: string | null;
+  reviewedBy?: string | null;
+}): Promise<void> {
+  const verdict = { met: "Met the goal", partial: "Partially met", missed: "Missed" }[opts.outcome];
+  await send(
+    opts.to,
+    `Reviewed: ${taskLabel(opts.code, opts.title)}`,
+    shell(
+      "Your work was reviewed",
+      `Hi ${opts.name}, <strong>${opts.title}</strong> has been reviewed${
+        opts.reviewedBy ? ` by ${opts.reviewedBy}` : ""
+      }.
+       ${facts([
+         ["Outcome", verdict],
+         ["Quality", opts.quality != null ? `${opts.quality} of 5` : null],
+       ])}
+       ${opts.learning ? `<p style="margin:16px 0 0;"><strong>Carry forward:</strong> ${opts.learning}</p>` : ""}
+       ${button(osUrl("/admin/os/reviews?tab=tasks"), "Read the review")}`,
+    ),
+  );
+}

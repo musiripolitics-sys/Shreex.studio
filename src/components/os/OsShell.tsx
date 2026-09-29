@@ -88,7 +88,7 @@ export function OsShell({
       {/* Sticky to the viewport: the sidebar is the fixed frame you navigate
           from, so it must not scroll away with the page under it. h-screen
           plus overflow-y-auto keeps it usable on a very short window too. */}
-      <aside className="sticky top-0 z-40 hidden h-screen w-52 shrink-0 flex-col overflow-y-auto border-r border-line bg-surface lg:flex">
+      <aside className="sticky top-0 z-40 hidden h-screen w-60 shrink-0 flex-col overflow-y-auto border-r border-line bg-surface lg:flex">
         <Link href="/admin/os" className="flex h-14 items-center gap-2.5 border-b border-line px-4">
           <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-brand text-[11px] font-bold text-white">
             OS
@@ -256,29 +256,58 @@ function ExpandedSection({
   section: NavSection;
   isActive: (href: string) => boolean;
 }) {
+  const hasActive = section.items.some((i) => isActive(i.href));
+  // Null means "follow the route", so the section you are actually in is open
+  // on arrival. Clicking the header takes that decision over until you click
+  // it again.
+  const [manual, setManual] = useState<boolean | null>(null);
+  const open = manual ?? hasActive;
+
   return (
-    <div className="mb-2">
-      <p className="flex items-center gap-2 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-faint">
+    <div className="mb-1">
+      <button
+        type="button"
+        onClick={() => setManual(!open)}
+        aria-expanded={open}
+        className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11px] font-semibold uppercase tracking-[0.1em] transition-colors hover:bg-surface-2 ${
+          hasActive ? "text-brand-soft" : "text-faint hover:text-fg"
+        }`}
+      >
         <Icon name={section.icon} className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
-        {section.label}
-      </p>
-      <div className="flex flex-col gap-0.5">
-        {section.items.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            aria-current={isActive(item.href) ? "page" : undefined}
-            className={`flex items-center gap-2.5 rounded-lg py-1.5 pl-7 pr-2.5 text-sm transition-colors ${
-              isActive(item.href)
-                ? "bg-brand/10 font-semibold text-brand-soft"
-                : "text-muted hover:bg-surface-2 hover:text-fg"
-            }`}
-          >
-            <Icon name={item.icon} className="h-4 w-4 shrink-0 text-faint" strokeWidth={1.8} />
-            <span className="truncate">{item.label}</span>
-          </Link>
-        ))}
-      </div>
+        <span className="min-w-0 flex-1">{section.label}</span>
+        <svg
+          viewBox="0 0 24 24"
+          aria-hidden
+          className={`h-3 w-3 shrink-0 transition-transform duration-150 ${open ? "rotate-90" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+        >
+          <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="flex flex-col gap-0.5 pb-1">
+          {section.items.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={isActive(item.href) ? "page" : undefined}
+              className={`flex items-start gap-2.5 rounded-lg py-1.5 pl-7 pr-2.5 text-sm transition-colors ${
+                isActive(item.href)
+                  ? "bg-brand/10 font-semibold text-brand-soft"
+                  : "text-muted hover:bg-surface-2 hover:text-fg"
+              }`}
+            >
+              <Icon name={item.icon} className="mt-0.5 h-4 w-4 shrink-0 text-faint" strokeWidth={1.8} />
+              {/* A name cut to "Competitor Tra…" is no use as a label; let it
+                  take a second line instead. */}
+              <span className="min-w-0 flex-1 leading-snug">{item.label}</span>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -371,7 +400,7 @@ function SectionFlyout({
             }`}
           >
             <Icon name={item.icon} className="h-4 w-4 shrink-0 text-faint" strokeWidth={1.8} />
-            <span className="truncate">{item.label}</span>
+            <span className="min-w-0 flex-1 leading-snug">{item.label}</span>
           </Link>
         ))}
       </div>

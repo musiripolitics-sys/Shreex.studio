@@ -42,6 +42,28 @@ const cases = [
     message: "We've moved to Hall B." })],
   ["host decision", () => M.sendHostDecision({
     to: "a@t.c", name: "Asha", approved: true })],
+
+  // Business OS: the moments a task changes hands.
+  ["task assigned", () => M.sendTaskAssigned({
+    to: "a@t.c", name: "Priya", code: "T-014", title: "Draft the October sponsor deck",
+    description: "Six slides, last year's numbers, the two new formats.",
+    dueDate: "12 Oct 2026", priority: "high", goal: "G-004 Make the money visible",
+    assignedBy: "Ada Admin", taskId: "11111111-1111-1111-1111-111111111111" })],
+  ["task approved", () => M.sendTaskDecision({
+    to: "a@t.c", name: "Priya", code: "T-014", title: "Draft the October sponsor deck",
+    approved: true, decidedBy: "Ada Admin", taskId: "11111111-1111-1111-1111-111111111111" })],
+  ["task sent back", () => M.sendTaskDecision({
+    to: "a@t.c", name: "Priya", code: "T-014", title: "Draft the October sponsor deck",
+    approved: false, note: "Needs last year's attendance numbers on slide 3.",
+    decidedBy: "Ada Admin", taskId: "11111111-1111-1111-1111-111111111111" })],
+  ["task submitted for approval", () => M.sendTaskSubmitted({
+    to: "a@t.c", name: "Ada", code: "T-014", title: "Draft the October sponsor deck",
+    submittedBy: "Priya P", taskId: "11111111-1111-1111-1111-111111111111" })],
+  ["task reviewed", () => M.sendTaskReviewed({
+    to: "a@t.c", name: "Priya", code: "T-014", title: "Draft the October sponsor deck",
+    outcome: "partial", quality: 4,
+    learning: "Book the design slot a week earlier next time.",
+    reviewedBy: "Ada Admin" })],
 ];
 
 console.log("Sending every template through the real code path:\n");
