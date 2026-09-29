@@ -71,3 +71,24 @@ export async function requireSection(section: SectionKey): Promise<void> {
   }
   if (data !== true) redirect("/admin/os?denied=" + section);
 }
+
+/**
+ * The user id to scope a page's queries to, or null for an admin.
+ *
+ * An employee sees their own work: the tasks assigned to them, the goals
+ * those tasks belong to, and the dependencies and calendar entries that
+ * follow. Admins see everything, so they scope to nothing.
+ *
+ * This filters what a page shows, not what the database will serve. The
+ * "staff read" policies from 0007 deliberately still allow an employee to
+ * read any task row, because a task blocked by somebody else's work has to
+ * be able to name it — a board that says "waiting on something" is worse
+ * than one that says what.
+ */
+export async function scopeToMe(): Promise<string | null> {
+  const supabase = await createClient();
+  const { data: admin } = await supabase.rpc("is_admin");
+  if (admin === true) return null;
+  const { data } = await supabase.auth.getUser();
+  return data.user?.id ?? null;
+}
