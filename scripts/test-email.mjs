@@ -63,6 +63,28 @@ const cases = [
   ["task submitted for approval", () => M.sendTaskSubmitted({
     to: "a@t.c", name: "Ada", code: "T-014", title: "Draft the October sponsor deck",
     submittedBy: "Priya P", taskId: "11111111-1111-1111-1111-111111111111" })],
+  // Onboarding, public forms and the approvals queue.
+  ["employee welcome", () => M.sendEmployeeWelcome({
+    to: "a@t.c", name: "Priya", title: "Community Lead",
+    sections: ["Plans", "Marketing", "Events"] })],
+  ["contact received", () => M.sendContactReceived({
+    to: "a@t.c", name: "Asha", subject: "Sponsorship" })],
+  ["host proposal received", () => M.sendHostProposalReceived({
+    to: "a@t.c", name: "Asha", eventTitle: "Chennai React Meetup" })],
+  ["newsletter welcome", () => M.sendNewsletterWelcome({ to: "a@t.c" })],
+  ["internal alert", () => M.sendInternalAlert({
+    to: "a@t.c", name: "Ada", heading: "New event proposal",
+    what: "somebody wants to host an event.",
+    details: [["Proposed by", "Asha R"], ["Event", "Chennai React Meetup"], ["City", "Chennai"]],
+    href: "/admin/os/hosts", cta: "Review the proposal" })],
+  ["approval approved", () => M.sendApprovalDecision({
+    to: "a@t.c", name: "Priya", requestType: "Expense",
+    requestTitle: "Venue deposit for the October meetup", approved: true })],
+  ["approval declined", () => M.sendApprovalDecision({
+    to: "a@t.c", name: "Priya", requestType: "Expense",
+    requestTitle: "Venue deposit for the October meetup", approved: false,
+    comments: "Get a second quote first." })],
+
   ["task reviewed", () => M.sendTaskReviewed({
     to: "a@t.c", name: "Priya", code: "T-014", title: "Draft the October sponsor deck",
     outcome: "partial", quality: 4,

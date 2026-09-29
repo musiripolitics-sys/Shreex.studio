@@ -525,3 +525,141 @@ export async function sendTaskReviewed(opts: {
     ),
   );
 }
+
+// ───────────────────── Onboarding, forms and approvals ─────────────────────
+
+/**
+ * A new employee has an account.
+ *
+ * Deliberately no password. An admin sets one when creating the account and
+ * hands it over directly; putting it in an email would leave the credential
+ * sitting in two mailboxes forever. The reset link covers anyone who was not
+ * told, or who forgets.
+ */
+export async function sendEmployeeWelcome(opts: {
+  to: string;
+  name: string;
+  title?: string | null;
+  sections: string[];
+}): Promise<void> {
+  const site = process.env.NEXT_PUBLIC_SITE_URL || "";
+  await send(
+    opts.to,
+    "Your Techxfluence Business OS account is ready",
+    shell(
+      "Welcome to the team 👋",
+      `Hi ${opts.name}, your account for the Techxfluence Business OS is ready${
+        opts.title ? `, as <strong>${opts.title}</strong>` : ""
+      }.
+       ${
+         opts.sections.length
+           ? `<p style="margin:14px 0 0;">You have access to: <strong>${opts.sections.join(", ")}</strong>.
+              Anything else stays hidden until someone grants it.</p>`
+           : ""
+       }
+       <p style="margin:14px 0 0;">Sign in with this address. Whoever set your
+       account up has your password — if you do not have it, use
+       <em>Forgot password</em> on the sign-in page and set your own.</p>
+       ${button(`${site}/admin/os`, "Open the Business OS")}`,
+    ),
+  );
+}
+
+/** Someone used the contact form. Sent to them, so they know it arrived. */
+export async function sendContactReceived(opts: {
+  to: string;
+  name: string;
+  subject?: string | null;
+}): Promise<void> {
+  await send(
+    opts.to,
+    "We got your message",
+    shell(
+      "Thanks for getting in touch",
+      `Hi ${opts.name}, we have your message${
+        opts.subject ? ` about <strong>${opts.subject}</strong>` : ""
+      } and someone will reply, usually within a couple of working days.
+       <p style="margin:14px 0 0;">No need to send it again — this is just to
+       confirm it reached us.</p>`,
+    ),
+  );
+}
+
+/** Someone proposed an event. Sent to them. */
+export async function sendHostProposalReceived(opts: {
+  to: string;
+  name: string;
+  eventTitle?: string | null;
+}): Promise<void> {
+  await send(
+    opts.to,
+    "We got your event proposal",
+    shell(
+      "Your proposal is in 🎤",
+      `Hi ${opts.name}, thanks for proposing${
+        opts.eventTitle ? ` <strong>${opts.eventTitle}</strong>` : " an event"
+      }. Someone from the team reviews every proposal by hand, so give us a few
+       days — you will hear back either way.`,
+    ),
+  );
+}
+
+export async function sendNewsletterWelcome(opts: { to: string }): Promise<void> {
+  const site = process.env.NEXT_PUBLIC_SITE_URL || "";
+  await send(
+    opts.to,
+    "You're subscribed to Techxfluence",
+    shell(
+      "You're on the list 📬",
+      `Thanks for subscribing. You will hear from us when there is something
+       worth hearing about — new events, what happened at the last one, and
+       what the community is building. Not more often than that.
+       ${button(`${site}/events`, "See what's on")}`,
+    ),
+  );
+}
+
+/** Something needs a decision. Sent to whoever can make it. */
+export async function sendInternalAlert(opts: {
+  to: string;
+  name: string;
+  heading: string;
+  what: string;
+  details?: [string, string | null | undefined][];
+  href: string;
+  cta: string;
+}): Promise<void> {
+  await send(
+    opts.to,
+    opts.heading,
+    shell(
+      opts.heading,
+      `Hi ${opts.name}, ${opts.what}
+       ${opts.details ? facts(opts.details) : ""}
+       ${button(`${process.env.NEXT_PUBLIC_SITE_URL || ""}${opts.href}`, opts.cta)}`,
+    ),
+  );
+}
+
+/** A request in the approvals queue was decided. Sent to whoever raised it. */
+export async function sendApprovalDecision(opts: {
+  to: string;
+  name: string;
+  requestType: string;
+  requestTitle: string;
+  approved: boolean;
+  comments?: string | null;
+}): Promise<void> {
+  await send(
+    opts.to,
+    `${opts.approved ? "Approved" : "Not approved"}: ${opts.requestTitle}`,
+    shell(
+      opts.approved ? "Your request was approved ✅" : "Your request was not approved",
+      `Hi ${opts.name}, your ${opts.requestType.toLowerCase()} request
+       — <strong>${opts.requestTitle}</strong> — was
+       ${opts.approved ? "approved" : "declined"}.
+       ${opts.comments ? `<p style="margin:14px 0 0;"><strong>Note:</strong> ${opts.comments}</p>` : ""}
+       ${button(`${process.env.NEXT_PUBLIC_SITE_URL || ""}/admin/os/approvals`, "See the request")}`,
+    ),
+  );
+}
