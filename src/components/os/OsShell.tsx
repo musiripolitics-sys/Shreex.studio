@@ -48,8 +48,13 @@ export function OsShell({
   const railSections = OS_SECTIONS.filter(
     (s) => s.label !== "Today" && allowed.has(s.label.toLowerCase()),
   );
+  // Pages reached from the top bar are not in the nav, so they need naming
+  // here or the title bar keeps saying "Dashboard".
+  const OFF_NAV: Record<string, string> = { "/admin/os/team/access": "Team & Access" };
   const current =
-    OS_SECTIONS.flatMap((s) => s.items).find((i) => isActive(i.href))?.label ?? "Dashboard";
+    OS_SECTIONS.flatMap((s) => s.items).find((i) => isActive(i.href))?.label ??
+    Object.entries(OFF_NAV).find(([href]) => isActive(href))?.[1] ??
+    "Dashboard";
   const activeSection = railSections.find((s) => s.items.some((i) => isActive(i.href)));
 
   return (
