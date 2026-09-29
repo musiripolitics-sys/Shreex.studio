@@ -720,7 +720,8 @@ export const MODULE_ORDER: string[] = [
 ];
 
 export type NavItem = { href: string; label: string; icon: string };
-export type NavSection = { label: string; items: NavItem[] };
+/** `icon` is the collapsed rail glyph; the group name only appears on hover. */
+export type NavSection = { label: string; icon: string; items: NavItem[] };
 
 const m = (key: string): NavItem => ({
   href: `/admin/os/${key}`,
@@ -739,6 +740,7 @@ const m = (key: string): NavItem => ({
 export const OS_SECTIONS: NavSection[] = [
   {
     label: "Today",
+    icon: "home",
     items: [
       { href: "/admin/os", label: "Dashboard", icon: "home" },
       { href: "/admin/os/alerts", label: "Alerts", icon: "bell" },
@@ -747,6 +749,7 @@ export const OS_SECTIONS: NavSection[] = [
   },
   {
     label: "Plan",
+    icon: "rocket",
     items: [
       { href: "/admin/os/roadmap", label: "Roadmap", icon: "rocket" },
       { href: "/admin/os/tasks", label: "Tasks", icon: "check" },
@@ -757,6 +760,7 @@ export const OS_SECTIONS: NavSection[] = [
   },
   {
     label: "Events",
+    icon: "calendar",
     items: [
       { href: "/admin/os/events", label: "Events", icon: "calendar" },
       { href: "/admin/os/hosts", label: "Hosts", icon: "mic" },
@@ -765,6 +769,7 @@ export const OS_SECTIONS: NavSection[] = [
   },
   {
     label: "Money",
+    icon: "trophy",
     items: [
       { href: "/admin/os/finance", label: "Finance", icon: "trophy" },
       m("vendors"),
@@ -772,6 +777,7 @@ export const OS_SECTIONS: NavSection[] = [
   },
   {
     label: "Grow",
+    icon: "users",
     items: [
       { href: "/admin/os/membership", label: "Membership", icon: "medal" },
       m("crm"),
@@ -782,22 +788,27 @@ export const OS_SECTIONS: NavSection[] = [
   },
   {
     label: "Marketing",
+    icon: "broadcast",
     items: [m("campaigns"), m("content"), m("podcast"), m("competitors")],
   },
   {
     label: "Team",
+    icon: "medal",
     items: [m("people"), m("hiring"), m("empkpis")],
   },
   {
     label: "Product",
+    icon: "code",
     items: [m("product"), m("feedback")],
   },
   {
     label: "Govern",
+    icon: "book",
     items: [m("risks"), m("legal"), m("audit"), m("kpis"), m("assets"), m("inventory")],
   },
   {
     label: "Insights",
+    icon: "sparkle",
     items: [
       { href: "/admin/os/analytics", label: "Analytics", icon: "nodes" },
       { href: "/admin/os/reports", label: "Reports", icon: "book" },
