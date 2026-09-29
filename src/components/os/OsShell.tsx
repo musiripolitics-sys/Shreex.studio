@@ -19,11 +19,16 @@ import { OS_SECTIONS, type NavSection } from "@/lib/os-modules";
  */
 export function OsShell({
   email,
+  isAdmin = false,
+  sections,
   alertCount = 0,
   approvalCount = 0,
   children,
 }: {
   email: string;
+  isAdmin?: boolean;
+  /** Section keys this user may open. Admins receive all nine. */
+  sections: string[];
   alertCount?: number;
   approvalCount?: number;
   children: React.ReactNode;
@@ -37,7 +42,12 @@ export function OsShell({
 
   // "Today" holds the dashboard plus the two things that moved to the top bar,
   // so the rail shows the nine planning sections and nothing else.
-  const railSections = OS_SECTIONS.filter((s) => s.label !== "Today");
+  // The nav shows only what the grant allows, so an employee never sees a
+  // door they cannot open. "Today" is ungated.
+  const allowed = new Set(sections);
+  const railSections = OS_SECTIONS.filter(
+    (s) => s.label !== "Today" && allowed.has(s.label.toLowerCase()),
+  );
   const current =
     OS_SECTIONS.flatMap((s) => s.items).find((i) => isActive(i.href))?.label ?? "Dashboard";
   const activeSection = railSections.find((s) => s.items.some((i) => isActive(i.href)));
@@ -102,7 +112,9 @@ export function OsShell({
               </button>
             </div>
             <nav className="flex flex-col gap-5 p-4">
-              {OS_SECTIONS.map((section) => (
+              {OS_SECTIONS.filter(
+                (s) => s.label === "Today" || allowed.has(s.label.toLowerCase()),
+              ).map((section) => (
                 <div key={section.label}>
                   <p className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-faint">
                     {section.label}
@@ -161,6 +173,15 @@ export function OsShell({
               tone="warn"
               active={isActive("/admin/os/alerts")}
             />
+            {isAdmin && (
+              <TopAction
+                href="/admin/os/team/access"
+                icon="users"
+                label="People and access"
+                count={0}
+                active={isActive("/admin/os/team/access")}
+              />
+            )}
             <span className="mx-1 hidden h-5 w-px bg-line sm:block" />
             <span className="hidden max-w-[14rem] truncate text-xs text-faint sm:inline">{email}</span>
             <Link
