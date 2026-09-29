@@ -5,6 +5,10 @@
  *
  *   npm run test:email
  */
+// Always exercise the SMTP path into the local sink, even on a machine that
+// has a provider key configured — these tests are about the templates, not
+// about delivery.
+delete process.env.RESEND_API_KEY;
 process.env.SMTP_HOST = "127.0.0.1";
 process.env.SMTP_PORT = "2526";
 process.env.SMTP_USER = "admin@techxfluence.com";

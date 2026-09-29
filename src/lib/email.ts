@@ -71,14 +71,45 @@ function shell(heading: string, bodyHtml: string): string {
   </table>`;
 }
 
+/**
+ * Hand the message to Resend over HTTPS.
+ *
+ * An HTTP API rather than SMTP is the whole point: there is no connection to
+ * authenticate, no IP to allowlist and no App Password to expire, so it works
+ * the same from a laptop on a rotating consumer address and from a serverless
+ * function with no fixed egress at all.
+ */
+async function sendViaResend(to: string, subject: string, html: string): Promise<void> {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ from: FROM, to, subject, html }),
+  });
+  if (!res.ok) {
+    // Resend puts the useful part in the body; the status alone says little.
+    const detail = await res.text().catch(() => "");
+    throw new Error(`Resend ${res.status}: ${detail.slice(0, 300)}`);
+  }
+}
+
 async function send(to: string, subject: string, html: string): Promise<void> {
-  const transporter = getTransporter();
-  if (!transporter) {
-    console.warn(`[email] SMTP_HOST is unset — skipping "${subject}" to ${to}`);
+  // The provider wins where it is configured. SMTP stays behind it so an
+  // existing deployment keeps working without being touched.
+  const viaResend = Boolean(process.env.RESEND_API_KEY);
+  const transporter = viaResend ? null : getTransporter();
+
+  if (!viaResend && !transporter) {
+    console.warn(
+      `[email] neither RESEND_API_KEY nor SMTP_HOST is set — skipping "${subject}" to ${to}`,
+    );
     return;
   }
   try {
-    await transporter.sendMail({ from: FROM, to, subject, html });
+    if (viaResend) await sendViaResend(to, subject, html);
+    else await transporter!.sendMail({ from: FROM, to, subject, html });
   } catch (err) {
     // Best-effort: never let an email failure break the main flow — but
     // record it, because a silent failure is how a dead SMTP password goes

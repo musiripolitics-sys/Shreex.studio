@@ -37,8 +37,58 @@ const { SMTP_HOST: host, SMTP_USER: user, SMTP_PASS: pass } = env;
 const from = env.EMAIL_FROM || user;
 const port = Number(env.SMTP_PORT || 465);
 
+// A provider key beats SMTP, matching src/lib/email.ts.
+if (env.RESEND_API_KEY) {
+  const to = process.argv[2];
+  const from = env.EMAIL_FROM || "onboarding@resend.dev";
+  console.log("provider  Resend (HTTPS API — no SMTP, no IP allowlist)");
+  console.log(`from      ${from}`);
+  console.log(`key       ${env.RESEND_API_KEY.length} chars` +
+    (env.RESEND_API_KEY.startsWith("re_") ? "  (valid shape)" : "  ⚠️  a Resend key starts with re_"));
+  console.log("");
+
+  if (!to) {
+    // Listing domains proves the key without sending anything.
+    const r = await fetch("https://api.resend.com/domains", {
+      headers: { Authorization: `Bearer ${env.RESEND_API_KEY}` },
+    });
+    const body = await r.text();
+    if (!r.ok) {
+      console.error(`❌ Resend rejected the key: ${r.status} ${body.slice(0, 200)}`);
+      process.exit(2);
+    }
+    const domains = (JSON.parse(body).data ?? []).map((d) => `${d.name} (${d.status})`);
+    console.log("✅ Key accepted.");
+    console.log(domains.length ? `   Domains: ${domains.join(", ")}` : "   No domains verified yet.");
+    console.log("\nPass an address to send a real test: npm run check:smtp you@example.com");
+    process.exit(0);
+  }
+
+  const r = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from,
+      to,
+      subject: "Techxfluence OS — email is working",
+      html: "<p>If you are reading this, the Business OS can send email.</p>",
+    }),
+  });
+  const body = await r.text();
+  if (!r.ok) {
+    console.error(`❌ Send refused: ${r.status} ${body.slice(0, 300)}`);
+    if (body.includes("domain")) {
+      console.error("\n  The sending domain is not verified yet. Add the DNS records Resend\n" +
+        "  gives you for techxfluence.com, then try again.");
+    }
+    process.exit(3);
+  }
+  console.log(`✅ Sent to ${to} — ${JSON.parse(body).id}`);
+  process.exit(0);
+}
+
 if (!host) {
-  console.error("Missing in " + envPath + ": SMTP_HOST");
+  console.error("Missing in " + envPath + ": SMTP_HOST or RESEND_API_KEY");
   process.exit(1);
 }
 
