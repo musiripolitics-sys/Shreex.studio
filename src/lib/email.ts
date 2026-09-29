@@ -1,10 +1,23 @@
 import "server-only";
 import nodemailer, { type Transporter } from "nodemailer";
 
-// Google Workspace / Gmail SMTP. Requires an App Password on the sending
-// account (2-Step Verification must be on). All vars come from env.
-// Falls back to the authenticated mailbox rather than a fixed address: you can
-// always send as yourself, but sending as anyone else needs Gmail's
+// Outbound mail, in either of the two shapes Google Workspace offers.
+//
+//   smtp.gmail.com       authenticates as a mailbox with an App Password.
+//                        Needs 2-Step Verification on that account, and the
+//                        password belongs to that account alone.
+//
+//   smtp-relay.gmail.com authenticates by IP instead. The sending host is
+//                        allowlisted in the Admin console under Apps > Gmail >
+//                        Routing > SMTP relay service, and no credential is
+//                        used at all. That means it only works from a host
+//                        with a fixed address.
+//
+// So credentials are optional: a relay with no SMTP_USER/SMTP_PASS is a valid
+// configuration, not a broken one. Only the host is required.
+//
+// FROM falls back to the authenticated mailbox rather than a fixed address:
+// you can always send as yourself, but sending as anyone else needs Gmail's
 // "Send mail as" verification, and a wrong default fails at delivery time.
 const FROM =
   process.env.EMAIL_FROM || process.env.SMTP_USER || "Techxfluence";
@@ -12,16 +25,23 @@ const FROM =
 let _transporter: Transporter | null = null;
 function getTransporter(): Transporter | null {
   const host = process.env.SMTP_HOST;
+  if (!host) return null;
+  if (_transporter) return _transporter;
+
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
-  if (!host || !user || !pass) return null;
-  if (_transporter) return _transporter;
   const port = Number(process.env.SMTP_PORT || 465);
+
   _transporter = nodemailer.createTransport({
     host,
     port,
-    secure: port === 465, // 465 = SSL, 587 = STARTTLS
-    auth: { user, pass },
+    secure: port === 465, // 465 = SSL, 587 and 25 = STARTTLS
+    // Relay by IP sends no AUTH at all. Passing an empty auth object would
+    // make nodemailer try anyway and the relay would reject the session.
+    ...(user && pass ? { auth: { user, pass } } : {}),
+    // Insist on STARTTLS against a real server, but not against the loopback
+    // sink the template tests speak to, which is plain TCP by design.
+    requireTLS: port !== 465 && !/^(127\.|localhost$|::1$)/.test(host),
   });
   return _transporter;
 }
@@ -54,7 +74,7 @@ function shell(heading: string, bodyHtml: string): string {
 async function send(to: string, subject: string, html: string): Promise<void> {
   const transporter = getTransporter();
   if (!transporter) {
-    console.warn(`[email] SMTP not configured — skipping "${subject}" to ${to}`);
+    console.warn(`[email] SMTP_HOST is unset — skipping "${subject}" to ${to}`);
     return;
   }
   try {

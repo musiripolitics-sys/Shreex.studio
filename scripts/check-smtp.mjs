@@ -29,22 +29,33 @@ const { SMTP_HOST: host, SMTP_USER: user, SMTP_PASS: pass } = env;
 const from = env.EMAIL_FROM || user;
 const port = Number(env.SMTP_PORT || 465);
 
-const missing = ["SMTP_HOST", "SMTP_USER", "SMTP_PASS"].filter((k) => !env[k]);
-if (missing.length) {
-  console.error("Missing in " + envPath + ": " + missing.join(", "));
+if (!host) {
+  console.error("Missing in " + envPath + ": SMTP_HOST");
   process.exit(1);
 }
 
-const redact = (s) => String(s).split(pass).join("«hidden»");
+// smtp-relay.gmail.com can authenticate by IP alone, so a configuration with
+// no credentials is valid rather than incomplete.
+const relay = /smtp-relay\.gmail\.com/i.test(host);
+const authenticating = Boolean(user && pass);
+
+if (!relay && !authenticating) {
+  console.error("Missing in " + envPath + ": SMTP_USER and SMTP_PASS are required for " + host);
+  process.exit(1);
+}
+
+const redact = (s) => (pass ? String(s).split(pass).join("«hidden»") : String(s));
 
 console.log(`host  ${host}:${port}`);
-console.log(`user  ${user}`);
+console.log(`user  ${user || "(none — relay authenticates by IP)"}`);
 console.log(`from  ${from}`);
 console.log(
-  `pass  ${pass.length} chars` +
-    (/^[a-z]{16}$/.test(pass)
-      ? "  (valid App Password shape)"
-      : "  ⚠️  a Google App Password is exactly 16 lowercase letters"),
+  authenticating
+    ? `pass  ${pass.length} chars` +
+        (/^[a-z]{16}$/.test(pass)
+          ? "  (valid App Password shape)"
+          : "  ⚠️  a Google App Password is exactly 16 lowercase letters")
+    : "pass  none — this host must allowlist your sending IP",
 );
 console.log("");
 
@@ -52,7 +63,8 @@ const transporter = nodemailer.createTransport({
   host,
   port,
   secure: port === 465,
-  auth: { user, pass },
+  ...(authenticating ? { auth: { user, pass } } : {}),
+  requireTLS: port !== 465,
   connectionTimeout: 15000,
   greetingTimeout: 15000,
 });
@@ -66,7 +78,7 @@ try {
 
   if (String(e.message).includes("535")) {
     console.log(`
-Google rejected the credential. In order of likelihood:
+Google rejected the connection. In order of likelihood:
 
   1. The App Password was revoked. They die whenever the account password
      changes. Generate a fresh one and paste it into SMTP_PASS.
