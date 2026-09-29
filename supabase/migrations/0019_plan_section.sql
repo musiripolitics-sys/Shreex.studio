@@ -3,21 +3,20 @@
 --
 -- 1. Nobody has a name.
 --    "read own profile" on public.users is `auth.uid() = id or is_admin()`,
---    so an employee's owner lookup returns exactly one row: themselves. Every
---    other row on their roadmap renders "—". That defeats the point of 0018,
---    which went to the trouble of making a blocker readable so the board could
---    say "waiting on T-005 (Farid)" rather than "waiting on something".
---    Widening the policy would hand every employee the staff email list, so
---    the directory is a security definer function instead: names for staff,
---    emails only for admins.
+--    so an owner lookup run by an employee returns exactly one row: the
+--    employee. Every other row on their roadmap renders as a dash, including
+--    the blocker that 0018 went to such trouble to make readable, so the board
+--    says "waiting on something" after all. Widening that policy would hand
+--    every employee the staff email list, so the directory is a security
+--    definer function instead: names for staff, emails for admins, members
+--    never.
 --
--- 2. An employee cannot close their own task's review.
---    0018 lets them read the review their completed task opened, but there is
---    no update policy, so the form on the Reviews page can only fail. Since
---    employees already edit the tasks they own, they may finish the retro on
---    them too.
+-- 2. An employee cannot close the review their own completed task opened.
+--    0018 lets them read it, but no policy lets them write it, so the form on
+--    the Reviews page can only fail. Employees already edit the tasks they
+--    own; they may finish the retro on them too.
 --
--- Idempotent. Run AFTER 0018.
+-- Idempotent. Run AFTER 0018. Safe to run twice.
 -- ============================================================
 
 -- ------------------------------------------------------------
@@ -29,7 +28,7 @@ language sql
 security definer          -- reads users with RLS bypassed, then re-narrows
 stable
 set search_path = public
-as $$
+as $fn$
   select u.id,
          u.full_name,
          -- An address is contact data, not a label. Staff get the name only.
@@ -37,11 +36,11 @@ as $$
          u.primary_role::text
     from public.users u
    where public.is_admin()
-      -- A colleague is nameable; a member is not, and never appears in the
-      -- Business OS at all.
+      -- A colleague is nameable. A member is not, and has no business
+      -- appearing anywhere in the Business OS.
       or (public.bos_is_staff()
           and u.primary_role::text in ('admin', 'employee', 'event_host'));
-$$;
+$fn$;
 
 revoke all on function public.bos_user_directory() from public;
 grant execute on function public.bos_user_directory() to authenticated;
