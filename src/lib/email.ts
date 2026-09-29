@@ -663,3 +663,38 @@ export async function sendApprovalDecision(opts: {
     ),
   );
 }
+
+/**
+ * A message someone in the team wrote and sent from the host pipeline.
+ *
+ * Unlike every other template here, the body is the author's own words, not
+ * ours: no greeting bolted on the front and no call to action on the end,
+ * because they have already written both. All this adds is the shell, so it
+ * looks like it came from Techxfluence rather than from a form.
+ */
+export async function sendHostMessage(opts: {
+  to: string;
+  subject: string;
+  body: string;
+  senderName?: string | null;
+}): Promise<void> {
+  const safe = opts.body
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br/>");
+
+  await send(
+    opts.to,
+    opts.subject,
+    shell(
+      opts.subject,
+      `<div style="white-space:normal;">${safe}</div>
+       ${
+         opts.senderName
+           ? `<p style="margin:18px 0 0;font-size:13px;color:#8a897f;">Sent by ${opts.senderName} at Techxfluence.</p>`
+           : ""
+       }`,
+    ),
+  );
+}
