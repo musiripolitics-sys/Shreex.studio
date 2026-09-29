@@ -10,9 +10,9 @@ import { OS_SECTIONS, type NavSection } from "@/lib/os-modules";
  * The Business OS shell.
  *
  * The sidebar used to list every one of ~35 destinations at once, which meant
- * scrolling to reach anything past Marketing. It is now a narrow rail: the
- * Dashboard pinned at the top, then one icon per section that opens its list
- * on hover. Nothing scrolls, and getting anywhere is a hover and a click.
+ * scrolling to reach anything past Marketing. It now shows the Dashboard and
+ * the nine sections by name — ten rows, which fit any screen without
+ * scrolling — and each section reveals its own items on hover.
  *
  * Alerts, approvals, the signed-in account and the way out sit top right,
  * because they are about the session rather than about navigating the plan.
@@ -45,31 +45,30 @@ export function OsShell({
   return (
     <div className="flex min-h-screen bg-ink">
       {/* ── Rail ── */}
-      <aside className="relative z-40 hidden w-16 shrink-0 flex-col items-center border-r border-line bg-surface lg:flex">
-        <Link
-          href="/admin/os"
-          title="Business OS"
-          className="mt-3 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand text-[11px] font-bold text-white"
-        >
-          OS
+      <aside className="relative z-40 hidden w-52 shrink-0 flex-col border-r border-line bg-surface lg:flex">
+        <Link href="/admin/os" className="flex h-14 items-center gap-2.5 border-b border-line px-4">
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-brand text-[11px] font-bold text-white">
+            OS
+          </span>
+          <span className="font-display text-sm font-bold text-fg">Business OS</span>
         </Link>
 
         <Link
           href="/admin/os"
-          title="Dashboard"
           aria-current={pathname === "/admin/os" ? "page" : undefined}
-          className={`mt-4 grid h-10 w-10 place-items-center rounded-xl transition-colors ${
+          className={`mx-2 mt-3 flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ${
             pathname === "/admin/os"
-              ? "bg-brand/10 text-brand-soft"
-              : "text-faint hover:bg-surface-2 hover:text-fg"
+              ? "bg-brand/10 font-semibold text-brand-soft"
+              : "text-muted hover:bg-surface-2 hover:text-fg"
           }`}
         >
-          <Icon name="home" className="h-[18px] w-[18px]" strokeWidth={1.8} />
+          <Icon name="home" className="h-[17px] w-[17px] shrink-0" strokeWidth={1.8} />
+          Dashboard
         </Link>
 
-        <div className="my-3 h-px w-8 bg-line" />
+        <div className="mx-4 my-2.5 h-px bg-line" />
 
-        <nav className="flex flex-col items-center gap-1" onMouseLeave={() => setHovered(null)}>
+        <nav className="flex flex-col gap-0.5 px-2" onMouseLeave={() => setHovered(null)}>
           {railSections.map((section) => (
             <RailItem
               key={section.label}
@@ -204,20 +203,25 @@ function RailItem({
     >
       <button
         type="button"
-        aria-label={section.label}
         aria-expanded={open}
-        className={`grid h-10 w-10 place-items-center rounded-xl transition-colors ${
-          active ? "bg-brand/10 text-brand-soft" : "text-faint hover:bg-surface-2 hover:text-fg"
+        className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ${
+          active
+            ? "bg-brand/10 font-semibold text-brand-soft"
+            : open
+              ? "bg-surface-2 text-fg"
+              : "text-muted hover:bg-surface-2 hover:text-fg"
         }`}
       >
-        <Icon name={section.icon} className="h-[18px] w-[18px]" strokeWidth={1.8} />
+        <Icon name={section.icon} className="h-[17px] w-[17px] shrink-0" strokeWidth={1.8} />
+        <span className="flex-1 text-left">{section.label}</span>
+        <span className="text-[9px] text-faint">{section.items.length}</span>
       </button>
 
       {/* A transparent bridge so the pointer can cross the gap without the
           flyout closing underneath it. */}
       {open && (
         <>
-          <span className="absolute left-full top-0 h-10 w-2" />
+          <span className="absolute left-full top-0 h-full w-2" />
           <div className="absolute left-full top-0 z-50 ml-2 w-56 overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
             <p className="border-b border-line px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-faint">
               {section.label}
