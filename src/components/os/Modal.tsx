@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { type ReactNode } from "react";
+import { useDialogChrome } from "./useDialogChrome";
 
 /** Lightweight accessible modal used by the Business OS record editors. */
 export function Modal({
@@ -16,28 +17,22 @@ export function Modal({
   children: ReactNode;
   wide?: boolean;
 }) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-    };
-  }, [open, onClose]);
+  useDialogChrome(open, onClose);
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto p-4 sm:p-8">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className={`relative my-auto w-full ${wide ? "max-w-3xl" : "max-w-lg"} rounded-2xl border border-line bg-surface p-6 shadow-soft`}
-      >
+    <div className="fixed inset-0 z-[100] overflow-y-auto overscroll-contain p-4 sm:p-8">
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      {/* A dialog taller than the viewport has to start at the top and scroll.
+          `my-auto` would centre it and put its own header out of reach. */}
+      <div className="relative flex min-h-full items-center justify-center">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={title}
+          className={`w-full ${wide ? "max-w-3xl" : "max-w-lg"} rounded-2xl border border-line bg-surface p-6 shadow-soft`}
+        >
         <div className="mb-4 flex items-center justify-between">
           <h3 className="font-display text-lg font-semibold text-fg">{title}</h3>
           <button
@@ -50,7 +45,8 @@ export function Modal({
             </svg>
           </button>
         </div>
-        {children}
+          {children}
+        </div>
       </div>
     </div>
   );
