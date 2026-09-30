@@ -1,11 +1,35 @@
 # Database
 
 ## Rebuild from scratch
+
+Two steps, in this order. Neither is optional.
+
 ```
-schema.sql          -- everything: enums, tables, indexes, functions, triggers, RLS, grants
+schema.sql                   -- the public site: events, tickets, members,
+                             -- payments, community, credits, chapters
+migrations/0007 … 0030       -- the Business OS, in filename order
 ```
-Run `schema.sql` once against a fresh Supabase project. It is idempotent and
-ordered by dependency, so it can also be re-run over an existing database.
+
+`schema.sql` is the **base**, not the whole database. It is applied once to a
+fresh project and then never re-derived, so every table a migration adds —
+tasks, goals, employee access, approvals, complaints, SOPs, the change log —
+is absent from it by design. Running it alone gives you a working public site
+with no Business OS behind it.
+
+Both are idempotent and ordered by dependency, so they can be re-run over an
+existing database.
+
+### It is not a dump
+
+Nothing regenerates `schema.sql` from production, so it cannot be trusted as a
+picture of what the live database contains, and the two have drifted before:
+the chapters tables sat in this file for months without ever being applied,
+which is what migration 0030 corrects.
+
+**Verify against the live database, not against this file.** A check written
+from `schema.sql` can pass while testing nothing — that has already happened
+twice, once for a permission that was never enabled and once for a column that
+does not exist.
 
 ## If schema.sql fails with a syntax error
 Postgres parses an entire multi-statement script *before* executing any of it,

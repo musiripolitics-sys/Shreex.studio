@@ -1,7 +1,19 @@
 -- ============================================================
--- Techxfluence — consolidated schema (generated).
--- Rebuilds the whole database from scratch in dependency order.
--- Replaces the incremental apply_*.sql patches; seeds stay separate.
+-- Techxfluence — the BASE schema. Not the whole database.
+--
+-- This file builds the public site: events, tickets, members, payments,
+-- community, credits. It is the starting point a fresh project needs first,
+-- and migrations/0007 onward build the Business OS on top of it — tasks,
+-- goals, employee access, approvals, complaints, SOPs and the rest. Running
+-- this file alone gives you a site with no Business OS in it.
+--
+-- It is not a dump of production and must not be read as one. It is applied
+-- once and then never re-derived, so anything added to the database by a
+-- migration is absent here by design. Verify against the live database, not
+-- against this file: a check written from it will pass while testing nothing,
+-- which has already happened twice.
+--
+-- Idempotent and ordered by dependency. Seeds stay separate.
 -- ============================================================
 create extension if not exists pgcrypto;
 create extension if not exists citext;
