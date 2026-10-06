@@ -1,6 +1,6 @@
 {
   "note": "Every SECURITY DEFINER function in public must appear here. A function in neither this file nor the database fails supabase/tests/tenancy-definers.test.mjs. The classification is for prioritising Stage 5; the guard only cares that nothing is unclassified.",
-  "stage": "0",
+  "stage": "2",
   "groups": {
     "A": "Reads that span rows. Set-returning or aggregating. With no tenant predicate they return every tenant's data to any caller. Fixed last, once the isolation test from Stage 6 exists.",
     "B": "Predicates about a row. Each needs 'and is this row in the caller's tenant'.",
@@ -48,6 +48,13 @@
       "returns": "boolean",
       "setReturning": false,
       "note": "The visibility predicate behind the Plan section. Needs a tenant clause."
+    },
+    "bos_current_tenant()": {
+      "group": "B",
+      "scope": "caller",
+      "returns": "uuid",
+      "setReturning": false,
+      "note": "Added in 0034. The tenant the caller is acting in, which every Stage 4 policy compares against. A tenant_id claim in the token wins but is checked against membership first, so a claim naming someone else tenant returns null rather than granting it. Definer for the same reason is_admin is: it is called from inside policies and nesting a policy evaluation in every one of them buys nothing."
     },
     "bos_dashboard_summary(p_from date, p_to date)": {
       "group": "A",
@@ -154,6 +161,13 @@
       "setReturning": false,
       "note": "Per-section counts for the nav. Counts would include other tenants' rows."
     },
+    "bos_seed_tenant_membership()": {
+      "group": "D",
+      "scope": "all",
+      "returns": "trigger",
+      "setReturning": false,
+      "note": "Added in 0034. Joins a new account to the default tenant, so membership does not rot between now and Stage 7. Temporary: once invitations exist, joining a tenant stops being automatic and this goes away."
+    },
     "bos_set_module_access(p_user uuid, p_sections text[])": {
       "group": "C",
       "scope": "row",
@@ -188,6 +202,13 @@
       "returns": "text",
       "setReturning": false,
       "note": "Explains why a task cannot complete. Reveals the task's state to any caller."
+    },
+    "bos_tenant_role(p_tenant uuid)": {
+      "group": "B",
+      "scope": "caller",
+      "returns": "user_role",
+      "setReturning": false,
+      "note": "Added in 0034. The caller role in a tenant. Definer by necessity, not convenience: a policy on tenant_members asking this question by selecting from tenant_members would recurse through its own policy forever, and bypassing RLS inside the helper is what breaks the cycle. Filtered to auth.uid(), so it can answer about nobody else."
     },
     "bos_track_changes()": {
       "group": "D",

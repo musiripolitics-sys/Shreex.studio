@@ -1,10 +1,11 @@
 {
   "note": "Every table in public must appear here. A table in neither list fails supabase/tests/tenancy-tables.test.mjs, which is the point: a new table has to be classified at review time rather than discovered after Stage 4 makes it invisible.",
-  "stage": "0",
+  "stage": "2",
   "buckets": {
     "tenant": "Gets tenant_id in Stage 3 and a tenant isolation policy in Stage 4.",
     "identity": "Global on purpose. No tenant_id.",
-    "platform": "Infrastructure and the global catalogue. Not owned by any tenant, so no tenant_id."
+    "platform": "Infrastructure and the global catalogue. Not owned by any tenant, so no tenant_id.",
+    "tenancy": "The tenancy tables themselves. They define the boundary rather than sitting inside it: tenants.id IS the tenant and the other two name it directly, so none of them gains a tenant_id in Stage 3. They do get isolation policies in Stage 4."
   },
   "identity": {
     "user_roles": "Platform-level roles. Tenant-level role lives on tenant_members.",
@@ -12,8 +13,13 @@
   },
   "platform": {
     "email_failures": "Delivery diagnostics for the platform operator.",
-    "products": "The product catalogue, added in migration 0033. The same nine rows for every tenant. Which products a given tenant has is tenant_products in Stage 2, and THAT table is tenant-owned; this one is not.",
+    "products": "The product catalogue, added in migration 0033. The same nine rows for every tenant, which is why it is not tenant-owned. Which products a given tenant has is tenant_products, in the tenancy bucket.",
     "rate_limits": "Abuse control for the whole install, keyed by bucket and key. Not a tenant record."
+  },
+  "tenancy": {
+    "tenants": "One row per business. Added in migration 0034.",
+    "tenant_members": "Membership and the role held in it. The spine: role moves off users.primary_role onto this row, because admin is a fact about a person in a tenant.",
+    "tenant_products": "Which products a tenant has switched on, and the settings for each. Carries tenant_id already, so Stage 3 skips it; Stage 4 still gives it a policy."
   },
   "tenant": [
     "activities",
@@ -105,7 +111,7 @@
     "workstreams"
   ],
   "uniqueConstraints": {
-    "note": "Computed from pg_constraint over the tenant-owned tables. Every one must be listed, so a new unique constraint is classified when it is written rather than discovered when two tenants collide.",
+    "note": "Computed from pg_constraint over the tenant-owned and tenancy tables. Every one must be listed, so a new unique constraint is classified when it is written rather than discovered when two tenants collide.",
     "needsTenantId": {
       "campaigns(code)": "A code is unique per business, not per platform.",
       "cashflow_months(month,scenario)": "Every tenant has its own January.",
@@ -137,6 +143,9 @@
       "sop_run_items(run_id,step_id)": "Both columns are tenant-owned.",
       "sop_versions(sop_id,version)": "sop_id is tenant-owned.",
       "task_reviews(task_id)": "task_id is tenant-owned.",
+      "tenant_members(tenant_id,user_id)": "Includes tenant_id by construction, which is what lets one person belong to two tenants.",
+      "tenant_products(tenant_id,product_key)": "Includes tenant_id by construction.",
+      "tenants(slug)": "Deliberately global. A slug identifies a tenant across the whole platform, so this is one of the few unique constraints that must NOT be scoped to a tenant.",
       "user_badges(user_id,badge_id)": "badge_id is tenant-owned, which scopes the pair."
     }
   },

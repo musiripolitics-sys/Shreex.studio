@@ -34,14 +34,15 @@ const classified = new Set([
   ...manifest.tenant,
   ...Object.keys(manifest.identity),
   ...Object.keys(manifest.platform),
+  ...Object.keys(manifest.tenancy ?? {}),
 ]);
 
-console.log("\nEvery table is classified tenant, identity or platform:");
+console.log("\nEvery table is classified tenant, tenancy, identity or platform:");
 const unclassified = tables.filter((t) => !classified.has(t.name)).map((t) => t.name);
 ok(unclassified.length === 0,
    unclassified.length === 0
      ? `all ${tables.length} tables appear in supabase/tenancy/tables.json`
-     : `UNCLASSIFIED: ${unclassified.join(", ")} — add each to tenant, identity or platform in supabase/tenancy/tables.json`);
+     : `UNCLASSIFIED: ${unclassified.join(", ")} — add each to tenant, tenancy, identity or platform in supabase/tenancy/tables.json`);
 
 const live = new Set(tables.map((t) => t.name));
 const stale = [...classified].filter((n) => !live.has(n));
@@ -72,7 +73,10 @@ if (forced > manifest.forceRlsBaseline) {
 console.log("\nEvery unique constraint on a tenant-owned table is accounted for:");
 const uc = manifest.uniqueConstraints;
 const known = new Set([...Object.keys(uc.needsTenantId), ...Object.keys(uc.alreadySafe)]);
-const tenantTables = new Set(manifest.tenant);
+// The tenancy tables are checked too: tenant_products(tenant_id, product_key)
+// is exactly the shape worth recording, and skipping them would leave a hole
+// in the one guard whose job is to find colliding constraints.
+const tenantTables = new Set([...manifest.tenant, ...Object.keys(manifest.tenancy ?? {})]);
 const live_uc = (await q(`
   select c.relname as t, con.conname,
          (select string_agg(a.attname, ',' order by a.attnum)
@@ -89,7 +93,7 @@ const live_uc = (await q(`
 const newUc = live_uc.filter((s) => !known.has(s));
 ok(newUc.length === 0,
    newUc.length === 0
-     ? `all ${live_uc.length} classified (${Object.keys(uc.needsTenantId).length} need tenant_id in Stage 3, ${Object.keys(uc.alreadySafe).length} already safe)`
+     ? `all ${live_uc.length} across the tenant and tenancy tables classified (${Object.keys(uc.needsTenantId).length} need tenant_id in Stage 3, ${Object.keys(uc.alreadySafe).length} already safe)`
      : `UNCLASSIFIED CONSTRAINT: ${newUc.join(", ")} — a unique constraint that does not include the tenant makes two tenants collide; classify it in supabase/tenancy/tables.json`);
 
 const staleUc = [...known].filter((s) => !live_uc.includes(s));

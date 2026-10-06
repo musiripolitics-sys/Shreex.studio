@@ -47,11 +47,33 @@ const strip = (s) =>
  * Starting at 0007 is what every existing suite does, and it reaches the same
  * 91 tables as production.
  */
-export function migrationFiles() {
+export function migrationFiles(upTo) {
   return fs
     .readdirSync(MIGRATIONS)
     .filter((f) => f.endsWith(".sql") && f >= "0007")
+    .filter((f) => !upTo || f.slice(0, 4) <= upTo)
     .sort();
+}
+
+const GRANTS = `grant usage on schema public to anon, authenticated;
+  grant select, insert, update, delete on all tables in schema public to anon, authenticated;
+  grant execute on all functions in schema public to anon, authenticated;
+  grant usage, select on all sequences in schema public to anon, authenticated;`;
+
+/**
+ * Apply one migration by filename, so a test can stop before a migration,
+ * seed rows the way production had them, and then run it. That is the only
+ * honest way to test a backfill.
+ *
+ * The grants are replayed afterwards. "on all tables" is a snapshot, not a
+ * standing rule, so a table created by this migration would otherwise be
+ * unreachable by anon and authenticated and every assertion about its
+ * policies would measure a privilege error instead. Supabase has default
+ * privileges that cover this in production; PGlite does not.
+ */
+export async function applyMigration(db, file) {
+  await db.exec(strip(fs.readFileSync(path.join(MIGRATIONS, file), "utf8")));
+  await db.exec(GRANTS);
 }
 
 /**
@@ -59,13 +81,13 @@ export function migrationFiles() {
  * files that failed, so a caller can report a broken migration rather than
  * silently measure a half-built schema.
  */
-export async function freshDb({ quiet = false } = {}) {
+export async function freshDb({ quiet = false, upTo } = {}) {
   const db = new PGlite();
   await db.waitReady;
   await db.exec(AUTH_SHIM);
 
   const skipped = [];
-  const files = ["../schema.sql", ...migrationFiles()];
+  const files = ["../schema.sql", ...migrationFiles(upTo)];
   for (const f of files) {
     const p = path.join(MIGRATIONS, f);
     try {
@@ -76,10 +98,8 @@ export async function freshDb({ quiet = false } = {}) {
     }
   }
 
-  await db.exec(`grant usage on schema public to anon, authenticated;
-    grant select, insert, update, delete on all tables in schema public to anon, authenticated;
-    grant execute on all functions in schema public to anon, authenticated;
-    grant usage, select on all sequences in schema public to anon, authenticated;`);
+  await db.exec(GRANTS);
+  await db.exec(`alter table public.users enable row level security;`);
 
   return { db, skipped };
 }
