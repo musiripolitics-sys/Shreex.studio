@@ -1,0 +1,14 @@
+# Netlify reads this; it does not read vercel.json, which is why the daily
+# reminder job silently stopped existing when the site moved here.
+#
+# Build settings are left to Netlify's own Next.js detection on purpose —
+# pinning them here is a second place to keep in step for no gain.
+
+[functions]
+  directory = "netlify/functions"
+
+# The schedule also lives beside the function itself, as its `config` export.
+# Declaring it here as well means the job is visible to anyone reading the
+# repo root rather than only to whoever opens the function.
+[functions."reminders"]
+  schedule = "0 3 * * *"
