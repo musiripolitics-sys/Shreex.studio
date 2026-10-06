@@ -138,31 +138,25 @@ await db.exec(`insert into public.risks(code,risk,area,impact,likelihood,next_re
                values ('R-01','Ada venue','Events',5,5,current_date - 30,'${t1}');`);
 await db.exec(`insert into public.risks(code,risk,area,impact,likelihood,next_review,tenant_id)
                values ('R-01','Ben venue','Events',5,5,current_date - 30,'${t2}');`);
-// The demonstration has moved four times now, once per Stage 5 batch,
+// The demonstration has moved five times now, once per Stage 5 batch,
 // because each batch fixes the function it was using: bos_govern_attention
 // (0038), bos_section_status (0039), bos_can_see_task (0040), redeem_promo
-// (0042). It uses cancel_registration, which is still open, and the harm is
-// a cross-tenant WRITE to somebody else's attendee.
+// (0042), cancel_registration (0043). It uses unlock_file, which is still
+// open: a gated community file unlocked by id, spending the caller's credits.
 await owner();
-await db.exec(`delete from public.registrations; delete from public.events;`);
-await db.exec(`insert into public.events(slug,title,category,date,city,venue,status,tenant_id)
-               values ('ada-ev','Ada Event','Meetup',current_date+3,'X','Y','published','${t1}');`);
-const adaEv = (await one(`select id from public.events where slug='ada-ev'`)).id;
-await db.exec(`insert into public.registrations(event_id,attendee_name,attendee_email,status,tenant_id)
-               values ('${adaEv}','Someone','s@a.c','registered','${t1}');`);
-const adaReg = (await one(`select id from public.registrations`)).id;
+await db.exec(`delete from public.community_files;`);
+await db.exec(`insert into public.community_files(title,storage_path,created_by,credit_cost,tenant_id)
+               values ('Ada deck','ada/deck.pdf','${ADA}',0,'${t1}');`);
+const adaFile = (await one(`select id from public.community_files`)).id;
 await as(BEN);
-const visible = (await one(`select count(*)::int c from public.registrations where id='${adaReg}'`)).c;
-const cancelled = await tryExec(`select public.cancel_registration('${adaReg}')`);
-await owner();
-const after = await one(`select status::text s from public.registrations where id='${adaReg}'`);
-const fate = after === undefined ? "the row is GONE" : `status is now "${after.s}"`;
-console.log(`  ⚠️  Ben reads ${visible} rows for Ada's registration — the policy works.`);
-console.log(`  ⚠️  cancel_registration on it ${cancelled ? "was refused: " + cancelled : "SUCCEEDED"}, and ${fate}.`);
+const visible = (await one(`select count(*)::int c from public.community_files where id='${adaFile}'`)).c;
+const unlocked = await tryExec(`select public.unlock_file('${adaFile}')`);
+console.log(`  ⚠️  Ben reads ${visible} rows for Ada's gated file — the policy works.`);
+console.log(`  ⚠️  unlock_file on it ${unlocked ? "was refused: " + unlocked : "SUCCEEDED and returned the URL"}.`);
 console.log(`      A definer function bypasses RLS, so the policy never runs inside`);
-console.log(`      it. Groups A, B and E are closed, and 0042 took thirteen of C.`);
-console.log(`      Fifteen C and twelve D remain — the ticket and order chain, and`);
-console.log(`      the triggers.`);
+console.log(`      it. Groups A, B and E are closed; 0042 and 0043 took nineteen of`);
+console.log(`      the twenty-eight in C. Nine C and eleven D remain.`);
+await owner();
 
 console.log("\nEvery tenant-owned table carries the policy, not just the ones tested:");
 await owner();

@@ -1,6 +1,6 @@
 {
   "note": "Every SECURITY DEFINER function in public must appear here. A function in neither this file nor the database fails supabase/tests/tenancy-definers.test.mjs. The classification is for prioritising Stage 5; the guard only cares that nothing is unclassified.",
-  "stage": "5d",
+  "stage": "5e",
   "groups": {
     "A": "Reads that span rows. Set-returning or aggregating. With no tenant predicate they return every tenant's data to any caller. Fixed last, once the isolation test from Stage 6 exists.",
     "B": "Predicates about a row. Each needs 'and is this row in the caller's tenant'.",
@@ -262,14 +262,16 @@
       "scope": "row",
       "returns": "jsonb",
       "setReturning": false,
-      "note": "Cancels by id."
+      "note": "Cancels by id. SCOPED in 0043: the registration, event and waitlist lookups are scoped, with a service-role exception. This is the function the Stage 4 suite caught deleting another business attendee outright.",
+      "scopedIn": "0043"
     },
     "check_in_ticket(p_code text)": {
       "group": "C",
       "scope": "row",
       "returns": "jsonb",
       "setReturning": false,
-      "note": "Admits an admin, the event host, or anyone with the Events section. None of those stops another tenant's admin checking in your attendee."
+      "note": "Admits an admin, the event host, or anyone with the Events section. None of those stops another tenant's admin checking in your attendee. SCOPED in 0043: the ticket lookup is scoped. Codes stay globally unique on purpose, so the lookup always found the right row - the hole was the permission test below it, which admitted any admin without asking whose event it was. The friendly message it already returned is now true.",
+      "scopedIn": "0043"
     },
     "community_leads(p_community uuid)": {
       "group": "B",
@@ -284,7 +286,8 @@
       "scope": "row",
       "returns": "jsonb",
       "setReturning": false,
-      "note": "Creates an order against an event id."
+      "note": "Creates an order against an event id. SCOPED in 0043: the event and ticket type lookups and both stock updates are scoped, and the order carries the tenant explicitly.",
+      "scopedIn": "0043"
     },
     "decide_approval(p_id uuid, p_decision text, p_comments text)": {
       "group": "C",
@@ -329,7 +332,8 @@
       "scope": "row",
       "returns": "jsonb",
       "setReturning": false,
-      "note": "Completes a payment by id. No caller check at all."
+      "note": "Completes a payment by id. No caller check at all. SCOPED in 0043: takes the tenant from the ORDER rather than the request, because the Razorpay webhook runs as the service role and has no membership - bos_request_tenant would have handed it the default tenant. Also carries a SECURITY FIX unrelated to tenancy: the function never checked the payment, so create_pending_order followed by fulfil_order(order_id, null) issued free tickets for a paid event. A paid order now needs a paid payment row of at least its total, in its own tenant, unless the caller is the service role. The promo redemption is inlined against the order tenant for the same webhook reason.",
+      "scopedIn": "0043"
     },
     "get_all_host_earnings()": {
       "group": "A",
@@ -533,14 +537,16 @@
       "scope": "row",
       "returns": "text",
       "setReturning": false,
-      "note": "Public registration path. No caller check by design."
+      "note": "Public registration path. No caller check by design. SCOPED in 0043: the ticket type and duplicate checks are scoped.",
+      "scopedIn": "0043"
     },
     "register_free_order(p_event_id uuid, p_ticket_type_id uuid, p_quantity integer, p_buyer_name text, p_buyer_email text, p_buyer_phone text, p_answers jsonb)": {
       "group": "C",
       "scope": "row",
       "returns": "jsonb",
       "setReturning": false,
-      "note": "As above, for free tickets."
+      "note": "As above, for free tickets. SCOPED in 0043: the ticket type and duplicate checks are scoped.",
+      "scopedIn": "0043"
     },
     "report_content(p_post_id uuid, p_comment_id uuid, p_reason text)": {
       "group": "C",
@@ -598,5 +604,8 @@
   "noLongerDefiner": {
     "bos_dashboard_summary(p_from date, p_to date)": "DROPPED in 0039. It could not be called: both overloads defaulted every argument, so a two-date call matched the four-argument one too and Postgres refused with \"is not unique\". Both call sites in the app pass four named arguments. Scoping it would have been 97 lines to protect dead code.",
     "bos_dashboard_summary(p_from date, p_to date, p_owner uuid, p_workstream uuid)": "Made SECURITY INVOKER in 0039, so it is no longer in this inventory. It raises FORBIDDEN unless the caller is an admin, and an admin can read all 27 tables it touches, so it never needed to bypass RLS. As an invoker the isolation policies scope all 35 subqueries at once. Verified behaviour-preserving: 66 of 66 keys identical between the two versions, and every table it reads has a permissive SELECT policy an admin satisfies."
+  },
+  "securityFindings": {
+    "fulfil_order free tickets (found 7 October 2026, fixed in 0043)": "fulfil_order is executable by anon - verified against production, where an unauthenticated call returned ORDER_NOT_FOUND, meaning the function ran - and it never checked p_payment_id. So create_pending_order followed by fulfil_order(order_id, null) issued tickets for a paid event with no payment. Nothing to do with tenancy; found while rewriting the function for it. 0043 requires a paid payment row of at least the order total, in the order tenant, unless the caller is the service role. STILL OPEN: public.payments lets a signed-in person insert their own row with status paid - the policy is auth.uid() = user_id - so a determined caller can forge one. Closing it properly means either revoking execute on fulfil_order from anon and authenticated, which needs the ticket-verify route to switch to the service-role client first, or tightening the payments insert policy so a client cannot claim status paid. Both change the purchase flow, so neither was done unasked."
   }
 }
