@@ -37,7 +37,23 @@ drop function if exists public.bos_dashboard_summary(date, date);
 -- it is the better fix where it applies: thirty-five hand-inserted
 -- predicates is thirty-five chances to mistype one.
 -- ------------------------------------------------------------
-alter function public.bos_dashboard_summary(date, date, uuid, uuid) security invoker;
+-- Guarded. Production function set has drifted from this repository before
+-- now -- is_paid_member was declared here and absent there -- so an ALTER on
+-- a signature taken from the repository is worth checking rather than
+-- assuming.
+do $mig$
+begin
+  if exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'public' and p.proname = 'bos_dashboard_summary'
+       and pg_get_function_identity_arguments(p.oid)
+           = 'p_from date, p_to date, p_owner uuid, p_workstream uuid'
+  ) then
+    alter function public.bos_dashboard_summary(date, date, uuid, uuid) security invoker;
+  else
+    raise notice 'bos_dashboard_summary(date,date,uuid,uuid) not present; nothing to alter';
+  end if;
+end $mig$;
 
 comment on function public.bos_dashboard_summary(date, date, uuid, uuid) is
   $c$The admin dashboard numbers. SECURITY INVOKER on purpose: the caller is already an admin, so RLS gives the right answer and the tenant isolation policies scope every subquery without a predicate in any of them.$c$;

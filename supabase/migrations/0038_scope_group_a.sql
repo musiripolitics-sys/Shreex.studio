@@ -29,6 +29,55 @@
 -- ============================================================
 
 -- ------------------------------------------------------------
+-- 0. Two predicates this migration calls, created here if absent
+--
+-- get_directory and event_attendance both call is_paid_member, which calls
+-- member_tier. Both are declared in schema.sql, and both turned out to be
+-- MISSING FROM PRODUCTION -- the same drift that made the definer count 72 in
+-- this repository and 59 in the live database. Applying this migration there
+-- failed on "function public.is_paid_member() does not exist".
+--
+-- Creating them here rather than relying on 0040, which also defines them,
+-- keeps this migration self-sufficient: it applies whether or not the
+-- membership predicates already exist and whatever order the batch is pasted
+-- in. 0040 replaces both with identical bodies.
+--
+-- They are created tenant-aware from the start, since that is what the rest
+-- of this migration assumes.
+-- ------------------------------------------------------------
+create or replace function public.member_tier()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $fn$
+  select m.tier::text
+    from public.memberships m
+   where m.user_id = auth.uid()
+     and m.tenant_id = public.bos_request_tenant()
+     and m.status = 'active'
+     and (m.renews_at is null or m.renews_at >= now())
+     and m.tier::text in ('Pro','Elite')
+   limit 1;
+$fn$;
+
+create or replace function public.is_paid_member()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $fn$
+  select public.is_admin() or public.member_tier() is not null;
+$fn$;
+
+revoke all on function public.member_tier()     from public;
+revoke all on function public.is_paid_member()  from public;
+grant execute on function public.member_tier()    to authenticated, anon;
+grant execute on function public.is_paid_member() to authenticated, anon;
+
+-- ------------------------------------------------------------
 -- 1. bos_govern_attention: everything overdue, in one list
 --
 -- Four tenant-owned tables, four predicates. Nothing else changes.
