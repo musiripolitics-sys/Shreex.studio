@@ -138,24 +138,31 @@ await db.exec(`insert into public.risks(code,risk,area,impact,likelihood,next_re
                values ('R-01','Ada venue','Events',5,5,current_date - 30,'${t1}');`);
 await db.exec(`insert into public.risks(code,risk,area,impact,likelihood,next_review,tenant_id)
                values ('R-01','Ben venue','Events',5,5,current_date - 30,'${t2}');`);
-// The demonstration has moved three times, because each batch of Stage 5
-// fixes the function it was using: bos_govern_attention in 0038,
-// bos_section_status in 0039, bos_can_see_task in 0040. It now uses a Group C
-// mutator, and the example is a cross-tenant WRITE rather than a read.
+// The demonstration has moved four times now, once per Stage 5 batch,
+// because each batch fixes the function it was using: bos_govern_attention
+// (0038), bos_section_status (0039), bos_can_see_task (0040), redeem_promo
+// (0042). It uses cancel_registration, which is still open, and the harm is
+// a cross-tenant WRITE to somebody else's attendee.
 await owner();
-await db.exec(`delete from public.promo_codes;`);
-await db.exec(`insert into public.promo_codes(code,percent_off,active,uses,tenant_id) values
-  ('LAUNCH50',50,true,0,'${t1}'), ('LAUNCH50',10,true,0,'${t2}');`);
+await db.exec(`delete from public.registrations; delete from public.events;`);
+await db.exec(`insert into public.events(slug,title,category,date,city,venue,status,tenant_id)
+               values ('ada-ev','Ada Event','Meetup',current_date+3,'X','Y','published','${t1}');`);
+const adaEv = (await one(`select id from public.events where slug='ada-ev'`)).id;
+await db.exec(`insert into public.registrations(event_id,attendee_name,attendee_email,status,tenant_id)
+               values ('${adaEv}','Someone','s@a.c','registered','${t1}');`);
+const adaReg = (await one(`select id from public.registrations`)).id;
 await as(BEN);
-const redeemed = await tryExec(`select public.redeem_promo('LAUNCH50')`);
+const visible = (await one(`select count(*)::int c from public.registrations where id='${adaReg}'`)).c;
+const cancelled = await tryExec(`select public.cancel_registration('${adaReg}')`);
 await owner();
-const uses = await q(`select percent_off, uses from public.promo_codes order by percent_off`);
-console.log(`  ⚠️  Ben redeeming his own LAUNCH50 ${redeemed ? "failed: " + redeemed : "succeeded"}.`);
-console.log(`  ⚠️  Uses afterwards: ${uses.map((r) => `${r.percent_off}%→${r.uses}`).join(", ")}.`);
-console.log(`      redeem_promo matches on the code alone, so it reaches both`);
-console.log(`      businesses rows at once — a definer function bypasses RLS and the`);
-console.log(`      policy never runs inside it. Groups A, B and E are closed; C and`);
-console.log(`      D remain, 40 functions, and only their bodies can close them.`);
+const after = await one(`select status::text s from public.registrations where id='${adaReg}'`);
+const fate = after === undefined ? "the row is GONE" : `status is now "${after.s}"`;
+console.log(`  ⚠️  Ben reads ${visible} rows for Ada's registration — the policy works.`);
+console.log(`  ⚠️  cancel_registration on it ${cancelled ? "was refused: " + cancelled : "SUCCEEDED"}, and ${fate}.`);
+console.log(`      A definer function bypasses RLS, so the policy never runs inside`);
+console.log(`      it. Groups A, B and E are closed, and 0042 took thirteen of C.`);
+console.log(`      Fifteen C and twelve D remain — the ticket and order chain, and`);
+console.log(`      the triggers.`);
 
 console.log("\nEvery tenant-owned table carries the policy, not just the ones tested:");
 await owner();

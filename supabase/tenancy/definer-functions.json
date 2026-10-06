@@ -1,6 +1,6 @@
 {
   "note": "Every SECURITY DEFINER function in public must appear here. A function in neither this file nor the database fails supabase/tests/tenancy-definers.test.mjs. The classification is for prioritising Stage 5; the guard only cares that nothing is unclassified.",
-  "stage": "5c",
+  "stage": "5d",
   "groups": {
     "A": "Reads that span rows. Set-returning or aggregating. With no tenant predicate they return every tenant's data to any caller. Fixed last, once the isolation test from Stage 6 exists.",
     "B": "Predicates about a row. Each needs 'and is this row in the caller's tenant'.",
@@ -27,7 +27,8 @@
       "scope": "row",
       "returns": "void",
       "setReturning": false,
-      "note": "Writes credits to any user id. No ownership check at all."
+      "note": "Writes credits to any user id. No ownership check at all. SCOPED in 0042: the target must be an active member of the caller tenant. p_user was never checked, so any caller could credit any account in the database. users.points stays global, which is a data-model question for later.",
+      "scopedIn": "0042"
     },
     "bos_can_access(p_section text)": {
       "group": "B",
@@ -141,7 +142,8 @@
       "scope": "row",
       "returns": "void",
       "setReturning": false,
-      "note": "Publishes a version by id."
+      "note": "Publishes a version by id. SCOPED in 0042: the version lookup and both updates are scoped.",
+      "scopedIn": "0042"
     },
     "bos_rate_limit(p_bucket text, p_key text, p_limit integer, p_window interval)": {
       "group": "C",
@@ -172,14 +174,17 @@
       "scope": "all",
       "returns": "trigger",
       "setReturning": false,
-      "note": "Added in 0034. Joins a new account to the default tenant, so membership does not rot between now and Stage 7. Temporary: once invitations exist, joining a tenant stops being automatic and this goes away."
+      "note": "Added in 0034. Joins a new account to the default tenant, so membership does not rot between now and Stage 7. Temporary: once invitations exist, joining a tenant stops being automatic and this goes away.",
+      "scopedIn": "0034",
+      "bornTenantAware": true
     },
     "bos_set_module_access(p_user uuid, p_sections text[])": {
       "group": "C",
       "scope": "row",
       "returns": "integer",
       "setReturning": false,
-      "note": "Grants sections to a user. Must not reach a user outside the caller's tenant."
+      "note": "Grants sections to a user. Must not reach a user outside the caller's tenant. SCOPED in 0042: the delete, the insert and the count are all scoped, and the target must be a member. Without the tenant on the DELETE, revoking a section in one business revoked it in every business the person belonged to.",
+      "scopedIn": "0042"
     },
     "bos_sop_current(p_sop uuid)": {
       "group": "A",
@@ -293,7 +298,8 @@
       "scope": "row",
       "returns": "void",
       "setReturning": false,
-      "note": "Approves a host application."
+      "note": "Approves a host application. SCOPED in 0042: writes tenant_members.role for the caller tenant instead of users.primary_role, which was one field for every business. users.host_status is still written because the public site reads it, and retires in Stage 7.",
+      "scopedIn": "0042"
     },
     "ensure_group_seed_post(p_event_id uuid)": {
       "group": "C",
@@ -315,7 +321,8 @@
       "scope": "all",
       "returns": "integer",
       "setReturning": false,
-      "note": "Sweeps every pending order. Run by the daily job, so it should stay global but must not be callable per tenant."
+      "note": "Sweeps every pending order. Run by the daily job, so it should stay global but must not be callable per tenant. SCOPED in 0042: DELIBERATELY cross-tenant when there is no auth.uid(), which is how the daily Netlify job runs it, and scoped to the caller tenant otherwise. Scoping it unconditionally would have used bos_request_tenant fallback and quietly stopped it sweeping every business but the default one.",
+      "scopedIn": "0042"
     },
     "fulfil_order(p_order_id uuid, p_payment_id uuid)": {
       "group": "C",
@@ -431,14 +438,16 @@
       "scope": "row",
       "returns": "text",
       "setReturning": false,
-      "note": "Writes a waitlist row against an event id."
+      "note": "Writes a waitlist row against an event id. SCOPED in 0042: the event lookup is scoped, so another business event is not found rather than joined.",
+      "scopedIn": "0042"
     },
     "leave_community(p_community uuid)": {
       "group": "C",
       "scope": "row",
       "returns": "void",
       "setReturning": false,
-      "note": "Leaves by id."
+      "note": "Leaves by id. SCOPED in 0042: scoped.",
+      "scopedIn": "0042"
     },
     "meets_gate(p_action text)": {
       "group": "E",
@@ -469,7 +478,8 @@
       "scope": "row",
       "returns": "void",
       "setReturning": false,
-      "note": "Writes a notification to any user id. Called by the trigger functions in group D."
+      "note": "Writes a notification to any user id. Called by the trigger functions in group D. SCOPED in 0042: the tenant is named rather than left to the column default.",
+      "scopedIn": "0042"
     },
     "notify_followers(p_event_id uuid)": {
       "group": "C",
@@ -491,28 +501,32 @@
       "scope": "row",
       "returns": "uuid",
       "setReturning": false,
-      "note": "Money out, to a host id."
+      "note": "Money out, to a host id. SCOPED in 0042: p_host_id must be an active member of the caller tenant, which it was never checked for at all, and the payout carries the tenant explicitly.",
+      "scopedIn": "0042"
     },
     "record_sponsorship(p_amount integer, p_note text)": {
       "group": "C",
       "scope": "all",
       "returns": "void",
       "setReturning": false,
-      "note": "Money in. Writes an unscoped row."
+      "note": "Money in. Writes an unscoped row. SCOPED in 0042: the tenant is written explicitly rather than left to the column default.",
+      "scopedIn": "0042"
     },
     "redeem_promo(p_code text)": {
       "group": "C",
       "scope": "row",
       "returns": "integer",
       "setReturning": false,
-      "note": "Increments a promo by code alone."
+      "note": "Increments a promo by code alone. SCOPED in 0042: scoped. This one was BROKEN rather than leaky: matching on the code alone, two businesses holding LAUNCH50 made the update reach both rows and fail with \"query returned more than one row\".",
+      "scopedIn": "0042"
     },
     "refresh_badges(p_user uuid)": {
       "group": "C",
       "scope": "row",
       "returns": "void",
       "setReturning": false,
-      "note": "Recomputes badges for a user id."
+      "note": "Recomputes badges for a user id. SCOPED in 0042: the attendance and post counts and the badge list are scoped, so a badge needing two events is not earned by attending one at each of two businesses.",
+      "scopedIn": "0042"
     },
     "register_for_event(p_event_id uuid, p_attendee_name text, p_attendee_email text, p_attendee_phone text, p_payment_id uuid, p_user_id uuid)": {
       "group": "C",
@@ -540,7 +554,8 @@
       "scope": "row",
       "returns": "void",
       "setReturning": false,
-      "note": "Closes a report by id."
+      "note": "Closes a report by id. SCOPED in 0042: scoped.",
+      "scopedIn": "0042"
     },
     "spend_credits(p_amount integer, p_reason text, p_event_id uuid)": {
       "group": "C",
@@ -579,7 +594,7 @@
       "scopedIn": "0039"
     }
   },
-  "stage5": "Groups A, B and E are complete. 0038 and 0039 took A (18 functions, including one dropped as unreachable and one made SECURITY INVOKER so the policies scope it). 0040 took E and B TOGETHER, because nearly every B predicate opens with is_admin() and scoping them while is_admin stayed tenant-blind would have left the short circuit open. 0041 is a correction the Stage 5 tests found rather than a review: a tenant claim that was refused fell back to the default tenant, turning 'you may not act there' into 'act in the default one instead'. Still to do: C (28 mutators) and D (12 triggers), 40 functions. The Stage 4 suite now demonstrates the gap with a cross-tenant WRITE: redeem_promo matches on the code alone, so with two businesses holding LAUNCH50 it reaches both rows and fails with 'query returned more than one row' - broken, not merely leaky.",
+  "stage5": "Groups A, B and E are complete, and 0042 took thirteen of the twenty-eight Group C mutators. Group C is where a missing predicate stops being disclosure and becomes damage: these act on a row named by an argument, and a definer function bypasses RLS. The Stage 4 suite demonstrates what is left with cancel_registration - an admin of one business deletes another business attendee registration outright. Remaining: fifteen C and twelve D. The fifteen are the ticket and order chain (create_pending_order, fulfil_order, register_for_event, register_free_order, cancel_registration, check_in_ticket) plus the community and credit functions; they call each other, so they are worth doing as one piece. D is lighter than the plan assumed, because the column defaults from 0035 already put trigger-written rows in the right tenant - what the triggers still need is scoping on what they READ.",
   "noLongerDefiner": {
     "bos_dashboard_summary(p_from date, p_to date)": "DROPPED in 0039. It could not be called: both overloads defaulted every argument, so a two-date call matched the four-argument one too and Postgres refused with \"is not unique\". Both call sites in the app pass four named arguments. Scoping it would have been 97 lines to protect dead code.",
     "bos_dashboard_summary(p_from date, p_to date, p_owner uuid, p_workstream uuid)": "Made SECURITY INVOKER in 0039, so it is no longer in this inventory. It raises FORBIDDEN unless the caller is an admin, and an admin can read all 27 tables it touches, so it never needed to bypass RLS. As an invoker the isolation policies scope all 35 subqueries at once. Verified behaviour-preserving: 66 of 66 keys identical between the two versions, and every table it reads has a permissive SELECT policy an admin satisfies."
