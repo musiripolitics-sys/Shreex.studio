@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Build output of `npm run test:email`: a bundle of src/lib/email.ts plus
+    // its dependencies. Linting it reported 60 errors in nodemailer, which
+    // drowned the 13 that are actually ours.
+    ".tmp/**",
   ]),
 ]);
 
