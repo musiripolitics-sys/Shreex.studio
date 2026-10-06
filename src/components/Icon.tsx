@@ -151,6 +151,32 @@ const paths: Record<string, ReactNode> = {
       <path d="M9.5 20a2.5 2.5 0 0 0 5 0" />
     </>
   ),
+  // ── Tech services ──
+  pen: (
+    <>
+      <path d="M14.5 4.5l5 5L9 20H4v-5L14.5 4.5Z" />
+      <path d="M12.5 6.5l5 5" />
+    </>
+  ),
+  gauge: (
+    <>
+      <path d="M4.5 17a8.5 8.5 0 1 1 15 0" />
+      <path d="M12 13.5l4-4" />
+      <circle cx="12" cy="14" r="1.2" />
+    </>
+  ),
+  layout: (
+    <>
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+      <path d="M3.5 9h17M9.5 9v10.5" />
+    </>
+  ),
+  phone: (
+    <>
+      <rect x="7" y="3" width="10" height="18" rx="2.2" />
+      <path d="M11 17.5h2" />
+    </>
+  ),
 };
 
 export function Icon({

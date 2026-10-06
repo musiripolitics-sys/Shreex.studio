@@ -181,3 +181,16 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .flip-inner { transition: none; }
 }
+
+/* ── /Techservice scroll reveal ─────────────────────────────────────
+   Scroll-driven, CSS only: content is never hidden by script. Browsers
+   without animation-timeline, and reduced-motion users, see it as is. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .ts-reveal {
+      animation: float-up linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 35%;
+    }
+  }
+}
