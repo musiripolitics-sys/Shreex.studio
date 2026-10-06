@@ -1,6 +1,6 @@
 {
   "note": "Every SECURITY DEFINER function in public must appear here. A function in neither this file nor the database fails supabase/tests/tenancy-definers.test.mjs. The classification is for prioritising Stage 5; the guard only cares that nothing is unclassified.",
-  "stage": "5b",
+  "stage": "5c",
   "groups": {
     "A": "Reads that span rows. Set-returning or aggregating. With no tenant predicate they return every tenant's data to any caller. Fixed last, once the isolation test from Stage 6 exists.",
     "B": "Predicates about a row. Each needs 'and is this row in the caller's tenant'.",
@@ -19,7 +19,8 @@
       "scope": "row",
       "returns": "boolean",
       "setReturning": false,
-      "note": "Whether the caller attended an event."
+      "note": "Whether the caller attended an event. SCOPED in 0040: a tenant predicate on the row lookup.",
+      "scopedIn": "0040"
     },
     "award_credits(p_user uuid, p_amount integer, p_reason text, p_event_id uuid)": {
       "group": "C",
@@ -33,28 +34,33 @@
       "scope": "caller",
       "returns": "boolean",
       "setReturning": false,
-      "note": "Answers whether the caller has a section. Becomes per-tenant in Stage 7."
+      "note": "Answers whether the caller has a section. Becomes per-tenant in Stage 7. SCOPED in 0040: the grant lookup is scoped, so being granted Plan at one business no longer opens the door at every business.",
+      "scopedIn": "0040"
     },
     "bos_can_see_goal(p_goal uuid)": {
       "group": "B",
       "scope": "row",
       "returns": "boolean",
       "setReturning": false,
-      "note": "As above, for goals."
+      "note": "As above, for goals. SCOPED in 0040: a tenant predicate on the row lookup.",
+      "scopedIn": "0040"
     },
     "bos_can_see_task(p_task uuid)": {
       "group": "B",
       "scope": "row",
       "returns": "boolean",
       "setReturning": false,
-      "note": "The visibility predicate behind the Plan section. Needs a tenant clause."
+      "note": "The visibility predicate behind the Plan section. Needs a tenant clause. SCOPED in 0040: predicates on all six branches, and the is_admin short circuit above them is scoped too - which is why B and E had to be done together.",
+      "scopedIn": "0040"
     },
     "bos_current_tenant()": {
       "group": "B",
       "scope": "caller",
       "returns": "uuid",
       "setReturning": false,
-      "note": "Added in 0034. The tenant the caller is acting in, which every Stage 4 policy compares against. A tenant_id claim in the token wins but is checked against membership first, so a claim naming someone else tenant returns null rather than granting it. Definer for the same reason is_admin is: it is called from inside policies and nesting a policy evaluation in every one of them buys nothing."
+      "note": "Added in 0034. The tenant the caller is acting in, which every Stage 4 policy compares against. A tenant_id claim in the token wins but is checked against membership first, so a claim naming someone else tenant returns null rather than granting it. Definer for the same reason is_admin is: it is called from inside policies and nesting a policy evaluation in every one of them buys nothing. Corrected in 0041: a claim that is present and refused now returns null rather than falling back to the default tenant.",
+      "scopedIn": "0034",
+      "bornTenantAware": true
     },
     "bos_event_slug(p_title text, p_id uuid)": {
       "group": "A",
@@ -98,14 +104,16 @@
       "scope": "caller",
       "returns": "boolean",
       "setReturning": false,
-      "note": "As above."
+      "note": "As above. SCOPED in 0040: a tenant predicate on the row lookup.",
+      "scopedIn": "0040"
     },
     "bos_my_sections()": {
       "group": "B",
       "scope": "caller",
       "returns": "text[]",
       "setReturning": false,
-      "note": "The nav's source of truth. Becomes per-tenant."
+      "note": "The nav's source of truth. Becomes per-tenant. SCOPED in 0040: a tenant predicate on the row lookup.",
+      "scopedIn": "0040"
     },
     "bos_notify_task_decision()": {
       "group": "D",
@@ -147,7 +155,9 @@
       "scope": "all",
       "returns": "uuid",
       "setReturning": false,
-      "note": "Added in 0037. The tenant every isolation policy compares against: the caller current tenant, else the default tenant, else the only tenant if there is exactly one. Scope is all because the fallbacks answer without reference to who is asking - which is required, since an anonymous visitor on the public site has no membership and a restrictive policy comparing tenant_id against NULL would hide every row from everybody. The consequence is that the public website can only serve the default tenant until a request carries which tenant it is for."
+      "note": "Added in 0037. The tenant every isolation policy compares against: the caller current tenant, else the default tenant, else the only tenant if there is exactly one. Scope is all because the fallbacks answer without reference to who is asking - which is required, since an anonymous visitor on the public site has no membership and a restrictive policy comparing tenant_id against NULL would hide every row from everybody. The consequence is that the public website can only serve the default tenant until a request carries which tenant it is for. Corrected in 0041: a claim that is present and refused now returns null rather than falling back to the default tenant.",
+      "scopedIn": "0037",
+      "bornTenantAware": true
     },
     "bos_section_status()": {
       "group": "A",
@@ -206,14 +216,18 @@
       "scope": "all",
       "returns": "uuid",
       "setReturning": false,
-      "note": "Added in 0035 as the column default on all 87 tenant-owned tables. Returns bos_current_tenant(), or the default tenant when there is no caller - which is the case for the cron job, the payment webhook and employee onboarding, all of which write as the service role. Scope is all rather than caller because the fallback branch answers without reference to who is asking; it reveals only the default tenant id, which is not a secret. Definer because it reads tenants, and a service-role insert has no membership to read it with. Stage 5 should narrow the fallback once more than one tenant exists, since a service-role write then has to be told which tenant it is for."
+      "note": "Added in 0035 as the column default on all 87 tenant-owned tables. Returns bos_current_tenant(), or the default tenant when there is no caller - which is the case for the cron job, the payment webhook and employee onboarding, all of which write as the service role. Scope is all rather than caller because the fallback branch answers without reference to who is asking; it reveals only the default tenant id, which is not a secret. Definer because it reads tenants, and a service-role insert has no membership to read it with. Stage 5 should narrow the fallback once more than one tenant exists, since a service-role write then has to be told which tenant it is for.",
+      "scopedIn": "0035",
+      "bornTenantAware": true
     },
     "bos_tenant_role(p_tenant uuid)": {
       "group": "B",
       "scope": "caller",
       "returns": "user_role",
       "setReturning": false,
-      "note": "Added in 0034. The caller role in a tenant. Definer by necessity, not convenience: a policy on tenant_members asking this question by selecting from tenant_members would recurse through its own policy forever, and bypassing RLS inside the helper is what breaks the cycle. Filtered to auth.uid(), so it can answer about nobody else."
+      "note": "Added in 0034. The caller role in a tenant. Definer by necessity, not convenience: a policy on tenant_members asking this question by selecting from tenant_members would recurse through its own policy forever, and bypassing RLS inside the helper is what breaks the cycle. Filtered to auth.uid(), so it can answer about nobody else.",
+      "scopedIn": "0034",
+      "bornTenantAware": true
     },
     "bos_track_changes()": {
       "group": "D",
@@ -235,7 +249,8 @@
       "scope": "row",
       "returns": "boolean",
       "setReturning": false,
-      "note": "Gate for community reads."
+      "note": "Gate for community reads. SCOPED in 0040: a tenant predicate on the row lookup.",
+      "scopedIn": "0040"
     },
     "cancel_registration(p_registration_id uuid)": {
       "group": "C",
@@ -256,7 +271,8 @@
       "scope": "row",
       "returns": "boolean",
       "setReturning": false,
-      "note": "Whether the caller leads a community."
+      "note": "Whether the caller leads a community. SCOPED in 0040: a tenant predicate on the row lookup.",
+      "scopedIn": "0040"
     },
     "create_pending_order(p_event_id uuid, p_ticket_type_id uuid, p_quantity integer, p_buyer_name text, p_buyer_email text, p_buyer_phone text, p_promo_code text, p_user_id uuid, p_answers jsonb)": {
       "group": "C",
@@ -368,35 +384,40 @@
       "scope": "caller",
       "returns": "boolean",
       "setReturning": false,
-      "note": "The most-called function in the system. Becomes a question about a membership, not a user."
+      "note": "The most-called function in the system. Becomes a question about a membership, not a user. SCOPED in 0040: reads tenant_members for the tenant this request is about. Being an admin of one business now grants nothing in another. A legacy fallback to users.primary_role applies ONLY inside the default tenant, so a drifted role cannot lock anybody out of Techxfluence and a platform-wide admin flag cannot leak admin sideways into a business someone merely belongs to.",
+      "scopedIn": "0040"
     },
     "is_community_member(p_community uuid)": {
       "group": "B",
       "scope": "row",
       "returns": "boolean",
       "setReturning": false,
-      "note": "Membership predicate."
+      "note": "Membership predicate. SCOPED in 0040: a tenant predicate on the row lookup.",
+      "scopedIn": "0040"
     },
     "is_employee()": {
       "group": "E",
       "scope": "caller",
       "returns": "boolean",
       "setReturning": false,
-      "note": "As above."
+      "note": "As above. SCOPED in 0040: now delegates to bos_is_staff. The two asked the same question in two slightly different ways, which is one way for them to drift apart.",
+      "scopedIn": "0040"
     },
     "is_host()": {
       "group": "E",
       "scope": "caller",
       "returns": "boolean",
       "setReturning": false,
-      "note": "As above."
+      "note": "As above. SCOPED in 0040: a tenant predicate on the row lookup.",
+      "scopedIn": "0040"
     },
     "is_paid_member()": {
       "group": "E",
       "scope": "caller",
       "returns": "boolean",
       "setReturning": false,
-      "note": "Membership tier is per tenant once each business sells its own."
+      "note": "Membership tier is per tenant once each business sells its own. SCOPED in 0040: no predicate of its own: both delegates are scoped.",
+      "scopedIn": "0040"
     },
     "join_community(p_community uuid)": {
       "group": "C",
@@ -424,7 +445,8 @@
       "scope": "caller",
       "returns": "boolean",
       "setReturning": false,
-      "note": "Gate check for member actions."
+      "note": "Gate check for member actions. SCOPED in 0040: a tenant predicate on the row lookup.",
+      "scopedIn": "0040"
     },
     "member_discount_pct(p_user_id uuid)": {
       "group": "A",
@@ -439,7 +461,8 @@
       "scope": "caller",
       "returns": "text",
       "setReturning": false,
-      "note": "As above."
+      "note": "As above. SCOPED in 0040: a tenant predicate on the row lookup.",
+      "scopedIn": "0040"
     },
     "notify(p_user_id uuid, p_type text, p_title text, p_body text, p_link text)": {
       "group": "C",
@@ -556,7 +579,7 @@
       "scopedIn": "0039"
     }
   },
-  "stage5": "Group A is complete: 0038 scoped eight, 0039 the remaining ten (two of which were a dropped dead overload and a flip to SECURITY INVOKER rather than a predicate). Group A was taken first, out of the order the architecture document gives, because FORCE ROW LEVEL SECURITY does not close the owner hole here - the owning role carries BYPASSRLS - so a predicate inside each body is the only control, and A is where rows cross. Still to do: B (11 row predicates), C (28 mutators), D (12 triggers) and E (7 caller-role predicates). D is in better shape than the plan assumed, because the column defaults from 0035 already put trigger-written rows in the right tenant.",
+  "stage5": "Groups A, B and E are complete. 0038 and 0039 took A (18 functions, including one dropped as unreachable and one made SECURITY INVOKER so the policies scope it). 0040 took E and B TOGETHER, because nearly every B predicate opens with is_admin() and scoping them while is_admin stayed tenant-blind would have left the short circuit open. 0041 is a correction the Stage 5 tests found rather than a review: a tenant claim that was refused fell back to the default tenant, turning 'you may not act there' into 'act in the default one instead'. Still to do: C (28 mutators) and D (12 triggers), 40 functions. The Stage 4 suite now demonstrates the gap with a cross-tenant WRITE: redeem_promo matches on the code alone, so with two businesses holding LAUNCH50 it reaches both rows and fails with 'query returned more than one row' - broken, not merely leaky.",
   "noLongerDefiner": {
     "bos_dashboard_summary(p_from date, p_to date)": "DROPPED in 0039. It could not be called: both overloads defaulted every argument, so a two-date call matched the four-argument one too and Postgres refused with \"is not unique\". Both call sites in the app pass four named arguments. Scoping it would have been 97 lines to protect dead code.",
     "bos_dashboard_summary(p_from date, p_to date, p_owner uuid, p_workstream uuid)": "Made SECURITY INVOKER in 0039, so it is no longer in this inventory. It raises FORBIDDEN unless the caller is an admin, and an admin can read all 27 tables it touches, so it never needed to bypass RLS. As an invoker the isolation policies scope all 35 subqueries at once. Verified behaviour-preserving: 66 of 66 keys identical between the two versions, and every table it reads has a permissive SELECT policy an admin satisfies."

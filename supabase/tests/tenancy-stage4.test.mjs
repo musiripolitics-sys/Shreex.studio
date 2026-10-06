@@ -74,8 +74,15 @@ ok(Number((await one(`select count(*)::int c from public.tasks`)).c) === 1,
 console.log("\nA claim cannot be used to cross over:");
 await as(ADA, t2);
 const crossed = await q(`select title from public.tasks`);
-ok(crossed.length === 1 && crossed[0].title === "Ada work",
-   `Ada asking for tenant 2 by claim still sees only her own, because bos_current_tenant checks the claim against membership (${crossed.map((r) => r.title).join(", ") || "none"})`);
+// Nothing, not "her own". Until 0041 this returned Ada's row: the claim was
+// correctly refused and then the fallback put her back in the default tenant.
+// A request scoped to a business she does not belong to is now answered with
+// no tenant at all, and a restrictive policy against NULL matches no row.
+ok(crossed.length === 0,
+   `Ada asking for tenant 2 by claim sees nothing (${crossed.map((r) => r.title).join(", ") || "none"}) — a refused claim denies rather than falling back to the default tenant`);
+await as(ADA);
+ok((await q(`select title from public.tasks`)).length === 1,
+   "and dropping the claim puts her back in her own business");
 
 console.log("\nWrites cannot land in another business:");
 await as(BEN);
@@ -131,22 +138,24 @@ await db.exec(`insert into public.risks(code,risk,area,impact,likelihood,next_re
                values ('R-01','Ada venue','Events',5,5,current_date - 30,'${t1}');`);
 await db.exec(`insert into public.risks(code,risk,area,impact,likelihood,next_review,tenant_id)
                values ('R-01','Ben venue','Events',5,5,current_date - 30,'${t2}');`);
-// The demonstration has moved twice, because each batch of Stage 5 fixes the
-// function it was using: bos_govern_attention in 0038, then bos_section_status
-// in 0039. It now uses a Group B predicate, which Stage 5 has not reached.
+// The demonstration has moved three times, because each batch of Stage 5
+// fixes the function it was using: bos_govern_attention in 0038,
+// bos_section_status in 0039, bos_can_see_task in 0040. It now uses a Group C
+// mutator, and the example is a cross-tenant WRITE rather than a read.
 await owner();
-await db.exec(`delete from public.tasks;`);
-await db.exec(`insert into public.tasks(code,title,tenant_id) values ('T-ADA','Ada work','${t1}');`);
-const adaTask = (await one(`select id from public.tasks where code='T-ADA'`)).id;
+await db.exec(`delete from public.promo_codes;`);
+await db.exec(`insert into public.promo_codes(code,percent_off,active,uses,tenant_id) values
+  ('LAUNCH50',50,true,0,'${t1}'), ('LAUNCH50',10,true,0,'${t2}');`);
 await as(BEN);
-const readable = (await one(`select count(*)::int c from public.tasks where id='${adaTask}'`)).c;
-const predicate = (await one(`select public.bos_can_see_task('${adaTask}') v`)).v;
-console.log(`  ⚠️  Ben reads ${readable} rows for Ada's task — the isolation policy works.`);
-console.log(`  ⚠️  bos_can_see_task() answers ${predicate} about it, because a definer`);
-console.log(`      function bypasses RLS and the policy never runs inside it.`);
-console.log(`      Group A is closed. B, C, D and E remain — 58 functions, and no`);
-console.log(`      database-level switch can close them, only the bodies.`);
+const redeemed = await tryExec(`select public.redeem_promo('LAUNCH50')`);
 await owner();
+const uses = await q(`select percent_off, uses from public.promo_codes order by percent_off`);
+console.log(`  ⚠️  Ben redeeming his own LAUNCH50 ${redeemed ? "failed: " + redeemed : "succeeded"}.`);
+console.log(`  ⚠️  Uses afterwards: ${uses.map((r) => `${r.percent_off}%→${r.uses}`).join(", ")}.`);
+console.log(`      redeem_promo matches on the code alone, so it reaches both`);
+console.log(`      businesses rows at once — a definer function bypasses RLS and the`);
+console.log(`      policy never runs inside it. Groups A, B and E are closed; C and`);
+console.log(`      D remain, 40 functions, and only their bodies can close them.`);
 
 console.log("\nEvery tenant-owned table carries the policy, not just the ones tested:");
 await owner();
