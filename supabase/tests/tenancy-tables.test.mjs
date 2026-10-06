@@ -73,13 +73,15 @@ ok(open_.length === 0,
      ? `all ${manifest.tenant.length} carry a RESTRICTIVE "tenant isolation" policy`
      : `NOT ISOLATED: ${open_.join(", ")} — a new tenant-owned table needs the policy too, and a PERMISSIVE one would widen access rather than narrow it`);
 
-console.log("\nFORCE ROW LEVEL SECURITY only ever goes up:");
+// Kept as a measurement, not as a control. Production was measured on
+// 6 October 2026: postgres and service_role both carry BYPASSRLS, and FORCE
+// removes only the ownership exemption, never the role attribute. So turning
+// it on would change nothing here, and the owner hole can only be closed
+// inside each definer function body. See forceRlsNote in tables.json.
+console.log("\nFORCE ROW LEVEL SECURITY, recorded rather than relied on:");
 const forced = tables.filter((t) => t.forced).length;
-ok(forced >= manifest.forceRlsBaseline,
-   `${forced} of ${tables.length} tables force RLS (baseline ${manifest.forceRlsBaseline})`);
-if (forced > manifest.forceRlsBaseline) {
-  console.log(`  ↑  raise forceRlsBaseline in supabase/tenancy/tables.json to ${forced}`);
-}
+ok(forced === manifest.forceRlsBaseline,
+   `${forced} of ${tables.length} force RLS, as expected (${manifest.forceRlsBaseline}). It is not a control in this project: the owning role carries BYPASSRLS, so FORCE would achieve nothing. The Stage 5 function audit is the control.`);
 
 console.log("\nEvery unique constraint and unique index on a tenant-owned table is accounted for:");
 const uc = manifest.uniqueConstraints;
