@@ -62,6 +62,17 @@ ok(noPolicy.length === 0,
      ? "and every one carries at least one policy"
      : `NO POLICY: ${noPolicy.join(", ")} — RLS with no policy denies everyone, which is safe but almost never intended`);
 
+console.log("\nEvery tenant-owned table is isolated:");
+const isolated = new Set((await q(`
+  select tablename from pg_policies
+   where schemaname = 'public' and policyname = 'tenant isolation'
+     and permissive = 'RESTRICTIVE'`)).map((r) => r.tablename));
+const open_ = manifest.tenant.filter((t) => !isolated.has(t));
+ok(open_.length === 0,
+   open_.length === 0
+     ? `all ${manifest.tenant.length} carry a RESTRICTIVE "tenant isolation" policy`
+     : `NOT ISOLATED: ${open_.join(", ")} — a new tenant-owned table needs the policy too, and a PERMISSIVE one would widen access rather than narrow it`);
+
 console.log("\nFORCE ROW LEVEL SECURITY only ever goes up:");
 const forced = tables.filter((t) => t.forced).length;
 ok(forced >= manifest.forceRlsBaseline,

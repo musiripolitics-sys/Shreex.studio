@@ -1,6 +1,6 @@
 {
   "note": "Every table in public must appear here. A table in neither list fails supabase/tests/tenancy-tables.test.mjs, which is the point: a new table has to be classified at review time rather than discovered after Stage 4 makes it invisible.",
-  "stage": "3",
+  "stage": "4",
   "buckets": {
     "tenant": "Gets tenant_id in Stage 3 and a tenant isolation policy in Stage 4.",
     "identity": "Global on purpose. No tenant_id.",
@@ -179,5 +179,6 @@
     }
   },
   "forceRlsBaseline": 0,
-  "forceRlsNote": "FORCE ROW LEVEL SECURITY is on 0 of 91 tables. Without it the table owner bypasses RLS entirely, which this project has already been bitten by: a permission test once passed while proving nothing because it ran as the owner. On a single-tenant system that was an embarrassing test. Under tenancy it is a leak. Stage 4 drives this to the full tenant-owned set; the guard only refuses to let it go down."
+  "forceRlsNote": "Still 0 of 95, and Stage 4 deliberately did not change that. The architecture document put FORCE ROW LEVEL SECURITY in Stage 4; measuring it rather than assuming showed it cannot go there. With FORCE on, a SECURITY DEFINER function owned by a non-superuser owner stops seeing the rows the permissive policies hide from the CALLER, and the owner own writes start failing: in a controlled test a definer function went from 1 row to 0 and the owner insert was refused. All 76 definer functions exist because they bypass RLS - notify() writes a notification FOR ANOTHER USER, which the policy auth.uid() = user_id forbids - so FORCE would break the notification system, every role check and the door scanner. It also only removes the OWNERSHIP exemption, not the BYPASSRLS role attribute: if the owning role carries BYPASSRLS, FORCE achieves nothing and the owner hole stays open regardless. Settle that first, then revisit after Stage 5. The ratchet stays so the number cannot quietly go down.",
+  "isolation": "Stage 4 added one RESTRICTIVE policy named 'tenant isolation' to each of the 87 tenant-owned tables, scoped to authenticated and anon, with both USING and WITH CHECK against bos_request_tenant(). Restrictive because Postgres OR-s permissive policies: an ordinary policy saying 'or the row is in your tenant' would have widened access past the existing per-user rules instead of narrowing it. The tenancy tables are excluded on purpose - reading tenant_members across tenants is how switching works."
 }

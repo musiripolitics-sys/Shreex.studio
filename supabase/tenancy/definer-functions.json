@@ -1,6 +1,6 @@
 {
   "note": "Every SECURITY DEFINER function in public must appear here. A function in neither this file nor the database fails supabase/tests/tenancy-definers.test.mjs. The classification is for prioritising Stage 5; the guard only cares that nothing is unclassified.",
-  "stage": "3",
+  "stage": "4",
   "groups": {
     "A": "Reads that span rows. Set-returning or aggregating. With no tenant predicate they return every tenant's data to any caller. Fixed last, once the isolation test from Stage 6 exists.",
     "B": "Predicates about a row. Each needs 'and is this row in the caller's tenant'.",
@@ -153,6 +153,13 @@
       "returns": "boolean",
       "setReturning": false,
       "note": "Platform infrastructure. Stays global, but the buckets should carry a tenant so one tenant cannot exhaust another's allowance."
+    },
+    "bos_request_tenant()": {
+      "group": "B",
+      "scope": "all",
+      "returns": "uuid",
+      "setReturning": false,
+      "note": "Added in 0037. The tenant every isolation policy compares against: the caller current tenant, else the default tenant, else the only tenant if there is exactly one. Scope is all because the fallbacks answer without reference to who is asking - which is required, since an anonymous visitor on the public site has no membership and a restrictive policy comparing tenant_id against NULL would hide every row from everybody. The consequence is that the public website can only serve the default tenant until a request carries which tenant it is for."
     },
     "bos_section_status()": {
       "group": "A",
