@@ -70,31 +70,52 @@ if (forced > manifest.forceRlsBaseline) {
   console.log(`  ↑  raise forceRlsBaseline in supabase/tenancy/tables.json to ${forced}`);
 }
 
-console.log("\nEvery unique constraint on a tenant-owned table is accounted for:");
+console.log("\nEvery unique constraint and unique index on a tenant-owned table is accounted for:");
 const uc = manifest.uniqueConstraints;
-const known = new Set([...Object.keys(uc.needsTenantId), ...Object.keys(uc.alreadySafe)]);
+const known = new Set(Object.keys(uc.safe));
 // The tenancy tables are checked too: tenant_products(tenant_id, product_key)
 // is exactly the shape worth recording, and skipping them would leave a hole
 // in the one guard whose job is to find colliding constraints.
 const tenantTables = new Set([...manifest.tenant, ...Object.keys(manifest.tenancy ?? {})]);
+// Read from pg_index, not pg_constraint. A unique INDEX created with CREATE
+// UNIQUE INDEX has no backing constraint and is invisible to pg_constraint,
+// yet it collides across tenants exactly the same way. badges(slug) is one,
+// and this guard missed it until Stage 3 went looking.
+//
+// Partial indexes are excluded: a predicate changes what the constraint even
+// means, so each needs reading rather than listing. They are named in the
+// manifest note instead.
 const live_uc = (await q(`
-  select c.relname as t, con.conname,
-         (select string_agg(a.attname, ',' order by a.attnum)
-            from pg_attribute a
-           where a.attrelid = c.oid and a.attnum = any(con.conkey)) as cols
-    from pg_constraint con
-    join pg_class c on c.oid = con.conrelid
-    join pg_namespace n on n.oid = c.relnamespace
-   where n.nspname = 'public' and con.contype = 'u'
-   order by c.relname, con.conname`))
-  .filter((r) => tenantTables.has(r.t))
+  select t.relname as t,
+         (select string_agg(a.attname, ',' order by k.ord)
+            from unnest(ix.indkey) with ordinality as k(attnum, ord)
+            join pg_attribute a on a.attrelid = t.oid and a.attnum = k.attnum) as cols
+    from pg_index ix
+    join pg_class i on i.oid = ix.indexrelid
+    join pg_class t on t.oid = ix.indrelid
+    join pg_namespace n on n.oid = t.relnamespace
+   where n.nspname = 'public'
+     and ix.indisunique
+     and not ix.indisprimary
+     and ix.indpred is null
+   order by t.relname, i.relname`))
+  .filter((r) => tenantTables.has(r.t) && r.cols)
   .map((r) => `${r.t}(${r.cols})`);
 
 const newUc = live_uc.filter((s) => !known.has(s));
 ok(newUc.length === 0,
    newUc.length === 0
-     ? `all ${live_uc.length} across the tenant and tenancy tables classified (${Object.keys(uc.needsTenantId).length} need tenant_id in Stage 3, ${Object.keys(uc.alreadySafe).length} already safe)`
+     ? `all ${live_uc.length} across the tenant and tenancy tables classified, ${Object.keys(uc.scopedIn0036).length} of them scoped by 0036`
      : `UNCLASSIFIED CONSTRAINT: ${newUc.join(", ")} — a unique constraint that does not include the tenant makes two tenants collide; classify it in supabase/tenancy/tables.json`);
+
+// Every one of the narrow constraints 0036 replaced must really be gone. A
+// leftover would mean two tenants still cannot share that value, which is the
+// whole thing Stage 3 exists to remove.
+const leftover = Object.keys(uc.scopedIn0036).filter((k) => live_uc.includes(k));
+ok(leftover.length === 0,
+   leftover.length === 0
+     ? `and none of the ${Object.keys(uc.scopedIn0036).length} narrow constraints 0036 dropped has come back`
+     : `STILL NARROW: ${leftover.join(", ")} — 0036 was meant to drop this`);
 
 const staleUc = [...known].filter((s) => !live_uc.includes(s));
 ok(staleUc.length === 0,

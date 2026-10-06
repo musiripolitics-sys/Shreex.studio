@@ -1,6 +1,6 @@
 {
   "note": "Every SECURITY DEFINER function in public must appear here. A function in neither this file nor the database fails supabase/tests/tenancy-definers.test.mjs. The classification is for prioritising Stage 5; the guard only cares that nothing is unclassified.",
-  "stage": "2",
+  "stage": "3",
   "groups": {
     "A": "Reads that span rows. Set-returning or aggregating. With no tenant predicate they return every tenant's data to any caller. Fixed last, once the isolation test from Stage 6 exists.",
     "B": "Predicates about a row. Each needs 'and is this row in the caller's tenant'.",
@@ -202,6 +202,13 @@
       "returns": "text",
       "setReturning": false,
       "note": "Explains why a task cannot complete. Reveals the task's state to any caller."
+    },
+    "bos_tenant_default()": {
+      "group": "B",
+      "scope": "all",
+      "returns": "uuid",
+      "setReturning": false,
+      "note": "Added in 0035 as the column default on all 87 tenant-owned tables. Returns bos_current_tenant(), or the default tenant when there is no caller - which is the case for the cron job, the payment webhook and employee onboarding, all of which write as the service role. Scope is all rather than caller because the fallback branch answers without reference to who is asking; it reveals only the default tenant id, which is not a secret. Definer because it reads tenants, and a service-role insert has no membership to read it with. Stage 5 should narrow the fallback once more than one tenant exists, since a service-role write then has to be told which tenant it is for."
     },
     "bos_tenant_role(p_tenant uuid)": {
       "group": "B",

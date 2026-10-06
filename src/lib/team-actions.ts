@@ -38,11 +38,12 @@ export async function saveProfile(input: unknown) {
   const parsed = profileSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
 
-  // One profile per person, so this is an upsert on the person rather than an
-  // insert that would quietly create a second.
+  // One profile per person per tenant, so this is an upsert on the pair
+  // rather than an insert that would quietly create a second. The target
+  // gained tenant_id in migration 0035; the column default supplies the value.
   const { error } = await g.supabase
     .from("employee_profiles")
-    .upsert(parsed.data, { onConflict: "user_id" });
+    .upsert(parsed.data, { onConflict: "tenant_id,user_id" });
   if (error) return { error: error.message };
   touch("people", "empkpis");
   return { success: true };
