@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "node supabase/tests/run.mjs",
     "check:smtp": "node scripts/check-smtp.mjs",
     "test:email": "npx esbuild src/lib/email.ts --bundle --format=esm --platform=node --outfile=.tmp/email.mjs --external:nodemailer --alias:server-only=./scripts/server-only-stub.mjs --log-level=error && node scripts/test-email.mjs"
   },

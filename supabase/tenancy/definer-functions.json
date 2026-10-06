@@ -1,0 +1,522 @@
+{
+  "note": "Every SECURITY DEFINER function in public must appear here. A function in neither this file nor the database fails supabase/tests/tenancy-definers.test.mjs. The classification is for prioritising Stage 5; the guard only cares that nothing is unclassified.",
+  "stage": "0",
+  "groups": {
+    "A": "Reads that span rows. Set-returning or aggregating. With no tenant predicate they return every tenant's data to any caller. Fixed last, once the isolation test from Stage 6 exists.",
+    "B": "Predicates about a row. Each needs 'and is this row in the caller's tenant'.",
+    "C": "Mutators that act on a row named by an argument. Each already asks whether the caller may; each now also needs whether the row is theirs.",
+    "D": "Triggers. Each must carry tenant_id through, or it writes rows no policy matches.",
+    "E": "Predicates about the caller's role. Most-called, so changed first: role becomes a property of a membership."
+  },
+  "scopes": {
+    "all": "No filter on the caller at all.",
+    "row": "Filtered by an id passed in, which is not checked for ownership.",
+    "caller": "Filtered to auth.uid(), so it leaks nothing today."
+  },
+  "functions": {
+    "attended(p_event_id uuid)": {
+      "group": "B",
+      "scope": "row",
+      "returns": "boolean",
+      "setReturning": false,
+      "note": "Whether the caller attended an event."
+    },
+    "award_credits(p_user uuid, p_amount integer, p_reason text, p_event_id uuid)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "void",
+      "setReturning": false,
+      "note": "Writes credits to any user id. No ownership check at all."
+    },
+    "bos_can_access(p_section text)": {
+      "group": "B",
+      "scope": "caller",
+      "returns": "boolean",
+      "setReturning": false,
+      "note": "Answers whether the caller has a section. Becomes per-tenant in Stage 7."
+    },
+    "bos_can_see_goal(p_goal uuid)": {
+      "group": "B",
+      "scope": "row",
+      "returns": "boolean",
+      "setReturning": false,
+      "note": "As above, for goals."
+    },
+    "bos_can_see_task(p_task uuid)": {
+      "group": "B",
+      "scope": "row",
+      "returns": "boolean",
+      "setReturning": false,
+      "note": "The visibility predicate behind the Plan section. Needs a tenant clause."
+    },
+    "bos_dashboard_summary(p_from date, p_to date)": {
+      "group": "A",
+      "scope": "all",
+      "returns": "jsonb",
+      "setReturning": false,
+      "note": "Aggregates tasks, goals, money and events into one jsonb. Every number would span tenants."
+    },
+    "bos_dashboard_summary(p_from date, p_to date, p_owner uuid, p_workstream uuid)": {
+      "group": "A",
+      "scope": "all",
+      "returns": "jsonb",
+      "setReturning": false,
+      "note": "Same, with filters that do not include the tenant."
+    },
+    "bos_event_slug(p_title text, p_id uuid)": {
+      "group": "A",
+      "scope": "all",
+      "returns": "text",
+      "setReturning": false,
+      "note": "Scans events to make a slug unique. Should be unique per tenant, not per platform."
+    },
+    "bos_govern_attention()": {
+      "group": "A",
+      "scope": "all",
+      "returns": "record",
+      "setReturning": true,
+      "note": "Set-returning, no caller filter of any kind. Returns every governed record that needs attention. Without a tenant predicate it returns every tenant's."
+    },
+    "bos_guard_contact_rate()": {
+      "group": "D",
+      "scope": "all",
+      "returns": "trigger",
+      "setReturning": false,
+      "note": "Trigger. Enforces the contact form ceiling."
+    },
+    "bos_guard_newsletter_rate()": {
+      "group": "D",
+      "scope": "all",
+      "returns": "trigger",
+      "setReturning": false,
+      "note": "Trigger. Enforces the newsletter ceiling."
+    },
+    "bos_guard_task_completion()": {
+      "group": "D",
+      "scope": "all",
+      "returns": "trigger",
+      "setReturning": false,
+      "note": "Trigger. Blocks completion without an assignee, a comment and approval."
+    },
+    "bos_is_staff()": {
+      "group": "E",
+      "scope": "caller",
+      "returns": "boolean",
+      "setReturning": false,
+      "note": "As above."
+    },
+    "bos_my_sections()": {
+      "group": "B",
+      "scope": "caller",
+      "returns": "text[]",
+      "setReturning": false,
+      "note": "The nav's source of truth. Becomes per-tenant."
+    },
+    "bos_notify_task_decision()": {
+      "group": "D",
+      "scope": "all",
+      "returns": "trigger",
+      "setReturning": false,
+      "note": "Trigger. Writes a notification, so it must carry the tenant through."
+    },
+    "bos_notify_task_review()": {
+      "group": "D",
+      "scope": "all",
+      "returns": "trigger",
+      "setReturning": false,
+      "note": "Trigger. As above."
+    },
+    "bos_open_task_review()": {
+      "group": "D",
+      "scope": "all",
+      "returns": "trigger",
+      "setReturning": false,
+      "note": "Trigger. Opens a review row."
+    },
+    "bos_publish_sop(p_version uuid)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "void",
+      "setReturning": false,
+      "note": "Publishes a version by id."
+    },
+    "bos_rate_limit(p_bucket text, p_key text, p_limit integer, p_window interval)": {
+      "group": "C",
+      "scope": "all",
+      "returns": "boolean",
+      "setReturning": false,
+      "note": "Platform infrastructure. Stays global, but the buckets should carry a tenant so one tenant cannot exhaust another's allowance."
+    },
+    "bos_section_status()": {
+      "group": "A",
+      "scope": "all",
+      "returns": "jsonb",
+      "setReturning": false,
+      "note": "Per-section counts for the nav. Counts would include other tenants' rows."
+    },
+    "bos_set_module_access(p_user uuid, p_sections text[])": {
+      "group": "C",
+      "scope": "row",
+      "returns": "integer",
+      "setReturning": false,
+      "note": "Grants sections to a user. Must not reach a user outside the caller's tenant."
+    },
+    "bos_sop_current(p_sop uuid)": {
+      "group": "A",
+      "scope": "row",
+      "returns": "uuid",
+      "setReturning": false,
+      "note": "Resolves a SOP to its live version by id."
+    },
+    "bos_sync_roadmap_tasks()": {
+      "group": "C",
+      "scope": "all",
+      "returns": "integer",
+      "setReturning": false,
+      "note": "Rewrites roadmap task links across the table."
+    },
+    "bos_sync_task_approval()": {
+      "group": "D",
+      "scope": "all",
+      "returns": "trigger",
+      "setReturning": false,
+      "note": "Trigger. Keeps the approvals inbox in step."
+    },
+    "bos_task_completion_block(p_task uuid)": {
+      "group": "A",
+      "scope": "row",
+      "returns": "text",
+      "setReturning": false,
+      "note": "Explains why a task cannot complete. Reveals the task's state to any caller."
+    },
+    "bos_track_changes()": {
+      "group": "D",
+      "scope": "all",
+      "returns": "trigger",
+      "setReturning": false,
+      "note": "Trigger on six governed tables. Writes govern_changes, which must inherit the row's tenant or the history becomes invisible."
+    },
+    "bos_user_directory()": {
+      "group": "A",
+      "scope": "all",
+      "returns": "record",
+      "setReturning": true,
+      "note": "Returns the whole staff directory. Role-gated, so an employee of tenant B would see tenant A's people."
+    },
+    "can_read_community(p_community uuid)": {
+      "group": "B",
+      "scope": "row",
+      "returns": "boolean",
+      "setReturning": false,
+      "note": "Gate for community reads."
+    },
+    "cancel_registration(p_registration_id uuid)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "jsonb",
+      "setReturning": false,
+      "note": "Cancels by id."
+    },
+    "check_in_ticket(p_code text)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "jsonb",
+      "setReturning": false,
+      "note": "Admits an admin, the event host, or anyone with the Events section. None of those stops another tenant's admin checking in your attendee."
+    },
+    "community_leads(p_community uuid)": {
+      "group": "B",
+      "scope": "row",
+      "returns": "boolean",
+      "setReturning": false,
+      "note": "Whether the caller leads a community."
+    },
+    "create_pending_order(p_event_id uuid, p_ticket_type_id uuid, p_quantity integer, p_buyer_name text, p_buyer_email text, p_buyer_phone text, p_promo_code text, p_user_id uuid, p_answers jsonb)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "jsonb",
+      "setReturning": false,
+      "note": "Creates an order against an event id."
+    },
+    "decide_approval(p_id uuid, p_decision text, p_comments text)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "void",
+      "setReturning": false,
+      "note": "Approves by id."
+    },
+    "decide_host(p_user_id uuid, p_approve boolean)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "void",
+      "setReturning": false,
+      "note": "Approves a host application."
+    },
+    "ensure_group_seed_post(p_event_id uuid)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "void",
+      "setReturning": false,
+      "note": "Writes a seed post for an event."
+    },
+    "event_attendance(p_event_ids uuid[])": {
+      "group": "A",
+      "scope": "all",
+      "returns": "record",
+      "setReturning": true,
+      "note": "Set-returning, keyed by ids with no ownership check on them. Pass another tenant's event ids and it answers."
+    },
+    "expire_pending_orders()": {
+      "group": "C",
+      "scope": "all",
+      "returns": "integer",
+      "setReturning": false,
+      "note": "Sweeps every pending order. Run by the daily job, so it should stay global but must not be callable per tenant."
+    },
+    "fulfil_order(p_order_id uuid, p_payment_id uuid)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "jsonb",
+      "setReturning": false,
+      "note": "Completes a payment by id. No caller check at all."
+    },
+    "get_all_host_earnings()": {
+      "group": "A",
+      "scope": "all",
+      "returns": "record",
+      "setReturning": true,
+      "note": "Every host's money. The clearest cross-tenant read in the system."
+    },
+    "get_directory()": {
+      "group": "A",
+      "scope": "all",
+      "returns": "record",
+      "setReturning": true,
+      "note": "Set-returning, no filter. Reads the member directory."
+    },
+    "get_event_stats(p_event_id uuid)": {
+      "group": "A",
+      "scope": "row",
+      "returns": "jsonb",
+      "setReturning": false,
+      "note": "Aggregates one event. The event id is not checked for ownership."
+    },
+    "get_host_earnings()": {
+      "group": "A",
+      "scope": "caller",
+      "returns": "jsonb",
+      "setReturning": false,
+      "note": "Filtered to auth.uid(), so it leaks nothing today. It still needs scoping once one person hosts in two tenants."
+    },
+    "get_organizer(p_id uuid)": {
+      "group": "A",
+      "scope": "row",
+      "returns": "jsonb",
+      "setReturning": false,
+      "note": "Reads a user profile by id. No ownership check."
+    },
+    "get_top_members(p_limit integer)": {
+      "group": "A",
+      "scope": "all",
+      "returns": "record",
+      "setReturning": true,
+      "note": "Leaderboard across all members. Would mix tenants into one ranking."
+    },
+    "handle_new_user()": {
+      "group": "D",
+      "scope": "all",
+      "returns": "trigger",
+      "setReturning": false,
+      "note": "Trigger on auth.users. Creates the public.users row, so it decides which tenant a new account joins."
+    },
+    "is_admin()": {
+      "group": "E",
+      "scope": "caller",
+      "returns": "boolean",
+      "setReturning": false,
+      "note": "The most-called function in the system. Becomes a question about a membership, not a user."
+    },
+    "is_community_member(p_community uuid)": {
+      "group": "B",
+      "scope": "row",
+      "returns": "boolean",
+      "setReturning": false,
+      "note": "Membership predicate."
+    },
+    "is_employee()": {
+      "group": "E",
+      "scope": "caller",
+      "returns": "boolean",
+      "setReturning": false,
+      "note": "As above."
+    },
+    "is_host()": {
+      "group": "E",
+      "scope": "caller",
+      "returns": "boolean",
+      "setReturning": false,
+      "note": "As above."
+    },
+    "is_paid_member()": {
+      "group": "E",
+      "scope": "caller",
+      "returns": "boolean",
+      "setReturning": false,
+      "note": "Membership tier is per tenant once each business sells its own."
+    },
+    "join_community(p_community uuid)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "jsonb",
+      "setReturning": false,
+      "note": "Joins by id."
+    },
+    "join_waitlist(p_event_id uuid, p_attendee_name text, p_attendee_email text, p_attendee_phone text)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "text",
+      "setReturning": false,
+      "note": "Writes a waitlist row against an event id."
+    },
+    "leave_community(p_community uuid)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "void",
+      "setReturning": false,
+      "note": "Leaves by id."
+    },
+    "meets_gate(p_action text)": {
+      "group": "E",
+      "scope": "caller",
+      "returns": "boolean",
+      "setReturning": false,
+      "note": "Gate check for member actions."
+    },
+    "member_discount_pct(p_user_id uuid)": {
+      "group": "A",
+      "scope": "row",
+      "returns": "integer",
+      "setReturning": false,
+      "note": "Reads another user's tier by id."
+    },
+    "member_tier()": {
+      "group": "E",
+      "scope": "caller",
+      "returns": "text",
+      "setReturning": false,
+      "note": "As above."
+    },
+    "notify(p_user_id uuid, p_type text, p_title text, p_body text, p_link text)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "void",
+      "setReturning": false,
+      "note": "Writes a notification to any user id. Called by the trigger functions in group D."
+    },
+    "notify_followers(p_event_id uuid)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "integer",
+      "setReturning": false,
+      "note": "Fans out notifications for an event."
+    },
+    "public_stats()": {
+      "group": "A",
+      "scope": "all",
+      "returns": "jsonb",
+      "setReturning": false,
+      "note": "Deliberately readable by anonymous visitors. Under tenancy it has to become per-tenant, or every tenant's public site shows the platform total."
+    },
+    "record_payout(p_host_id uuid, p_amount integer, p_note text)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "uuid",
+      "setReturning": false,
+      "note": "Money out, to a host id."
+    },
+    "record_sponsorship(p_amount integer, p_note text)": {
+      "group": "C",
+      "scope": "all",
+      "returns": "void",
+      "setReturning": false,
+      "note": "Money in. Writes an unscoped row."
+    },
+    "redeem_promo(p_code text)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "integer",
+      "setReturning": false,
+      "note": "Increments a promo by code alone."
+    },
+    "refresh_badges(p_user uuid)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "void",
+      "setReturning": false,
+      "note": "Recomputes badges for a user id."
+    },
+    "register_for_event(p_event_id uuid, p_attendee_name text, p_attendee_email text, p_attendee_phone text, p_payment_id uuid, p_user_id uuid)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "text",
+      "setReturning": false,
+      "note": "Public registration path. No caller check by design."
+    },
+    "register_free_order(p_event_id uuid, p_ticket_type_id uuid, p_quantity integer, p_buyer_name text, p_buyer_email text, p_buyer_phone text, p_answers jsonb)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "jsonb",
+      "setReturning": false,
+      "note": "As above, for free tickets."
+    },
+    "report_content(p_post_id uuid, p_comment_id uuid, p_reason text)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "jsonb",
+      "setReturning": false,
+      "note": "Files a report against a post id."
+    },
+    "resolve_report(p_report_id uuid)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "void",
+      "setReturning": false,
+      "note": "Closes a report by id."
+    },
+    "spend_credits(p_amount integer, p_reason text, p_event_id uuid)": {
+      "group": "C",
+      "scope": "caller",
+      "returns": "integer",
+      "setReturning": false,
+      "note": "Spends the caller's own credits."
+    },
+    "sync_community_member_count()": {
+      "group": "D",
+      "scope": "all",
+      "returns": "trigger",
+      "setReturning": false,
+      "note": "Trigger. Denormalised count."
+    },
+    "sync_user_email()": {
+      "group": "D",
+      "scope": "all",
+      "returns": "trigger",
+      "setReturning": false,
+      "note": "Trigger. Mirrors the auth email onto public.users."
+    },
+    "unlock_file(p_file_id uuid)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "jsonb",
+      "setReturning": false,
+      "note": "Unlocks a gated file by id."
+    },
+    "validate_promo(p_code text)": {
+      "group": "A",
+      "scope": "row",
+      "returns": "integer",
+      "setReturning": false,
+      "note": "Looks a promo code up by code alone. Two tenants with the same code collide."
+    }
+  }
+}
