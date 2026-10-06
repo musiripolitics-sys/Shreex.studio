@@ -79,10 +79,16 @@ for (const g of ["E", "B", "C", "D", "A"]) {
   console.log(`  ${g}: ${String(all.length).padStart(2)} functions, ${unfiltered} with no caller filter at all — ${inv.groups[g].split(".")[0]}`);
 }
 
-console.log("\nPending until Stage 6 (not run, no second tenant exists yet):");
-console.log("  ⏳ every group A function returns disjoint rows for two different tenants");
-console.log("     Until a second tenant exists this assertion passes vacuously, which is");
-console.log("     worse than not running it. Stage 6 creates an empty test tenant for it.");
+// This was reported as pending from Stage 0 until Stage 6, because the
+// assertion needs a second tenant to mean anything and there was not one.
+// It now lives in tenancy-stage6.test.mjs, where it caught a real leak on
+// its first run: four predicates opened with a bare "is_admin() or ...", so
+// any admin passed for any row in any business.
+console.log("\nThe cross-tenant isolation assertions live in tenancy-stage6:");
+const stage6 = fs.existsSync("supabase/tests/tenancy-stage6.test.mjs");
+ok(stage6, stage6
+  ? "two tenants, disjoint results asserted per function, and an id from the other business refused"
+  : "MISSING — the isolation suite is the only control over the definer functions and it is gone");
 
 console.log(`\n${state.pass} passed, ${state.fail} failed`);
 process.exit(state.fail ? 1 : 0);

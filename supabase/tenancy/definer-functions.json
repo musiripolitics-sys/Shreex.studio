@@ -1,6 +1,6 @@
 {
   "note": "Every SECURITY DEFINER function in public must appear here. A function in neither this file nor the database fails supabase/tests/tenancy-definers.test.mjs. The classification is for prioritising Stage 5; the guard only cares that nothing is unclassified.",
-  "stage": "5 complete",
+  "stage": "6 complete",
   "groups": {
     "A": "Reads that span rows. Set-returning or aggregating. With no tenant predicate they return every tenant's data to any caller. Fixed last, once the isolation test from Stage 6 exists.",
     "B": "Predicates about a row. Each needs 'and is this row in the caller's tenant'.",
@@ -43,16 +43,16 @@
       "scope": "row",
       "returns": "boolean",
       "setReturning": false,
-      "note": "As above, for goals. SCOPED in 0040: a tenant predicate on the row lookup.",
-      "scopedIn": "0040"
+      "note": "As above, for goals. SCOPED in 0040: a tenant predicate on the row lookup. CORRECTED in 0046: 0040 scoped every exists() branch and left is_admin() standing alone at the front, so the first branch short-circuited and ANY admin passed for ANY row. An outer tenant gate now requires the row to be in the caller business before any branch is consulted. Found by the Stage 6 isolation test on its first run.",
+      "scopedIn": "0046"
     },
     "bos_can_see_task(p_task uuid)": {
       "group": "B",
       "scope": "row",
       "returns": "boolean",
       "setReturning": false,
-      "note": "The visibility predicate behind the Plan section. Needs a tenant clause. SCOPED in 0040: predicates on all six branches, and the is_admin short circuit above them is scoped too - which is why B and E had to be done together.",
-      "scopedIn": "0040"
+      "note": "The visibility predicate behind the Plan section. Needs a tenant clause. SCOPED in 0040: predicates on all six branches, and the is_admin short circuit above them is scoped too - which is why B and E had to be done together. CORRECTED in 0046: 0040 scoped every exists() branch and left is_admin() standing alone at the front, so the first branch short-circuited and ANY admin passed for ANY row. An outer tenant gate now requires the row to be in the caller business before any branch is consulted. Found by the Stage 6 isolation test on its first run.",
+      "scopedIn": "0046"
     },
     "bos_current_tenant()": {
       "group": "B",
@@ -264,8 +264,8 @@
       "scope": "row",
       "returns": "boolean",
       "setReturning": false,
-      "note": "Gate for community reads. SCOPED in 0040: a tenant predicate on the row lookup.",
-      "scopedIn": "0040"
+      "note": "Gate for community reads. SCOPED in 0040: a tenant predicate on the row lookup. CORRECTED in 0046: 0040 scoped every exists() branch and left is_admin() standing alone at the front, so the first branch short-circuited and ANY admin passed for ANY row. An outer tenant gate now requires the row to be in the caller business before any branch is consulted. Found by the Stage 6 isolation test on its first run.",
+      "scopedIn": "0046"
     },
     "cancel_registration(p_registration_id uuid)": {
       "group": "C",
@@ -288,8 +288,8 @@
       "scope": "row",
       "returns": "boolean",
       "setReturning": false,
-      "note": "Whether the caller leads a community. SCOPED in 0040: a tenant predicate on the row lookup.",
-      "scopedIn": "0040"
+      "note": "Whether the caller leads a community. SCOPED in 0040: a tenant predicate on the row lookup. CORRECTED in 0046: 0040 scoped every exists() branch and left is_admin() standing alone at the front, so the first branch short-circuited and ANY admin passed for ANY row. An outer tenant gate now requires the row to be in the caller business before any branch is consulted. Found by the Stage 6 isolation test on its first run.",
+      "scopedIn": "0046"
     },
     "create_pending_order(p_event_id uuid, p_ticket_type_id uuid, p_quantity integer, p_buyer_name text, p_buyer_email text, p_buyer_phone text, p_promo_code text, p_user_id uuid, p_answers jsonb)": {
       "group": "C",
@@ -627,5 +627,6 @@
   },
   "securityFindings": {
     "fulfil_order free tickets (found 7 October 2026, fixed in 0043)": "fulfil_order is executable by anon - verified against production, where an unauthenticated call returned ORDER_NOT_FOUND, meaning the function ran - and it never checked p_payment_id. So create_pending_order followed by fulfil_order(order_id, null) issued tickets for a paid event with no payment. Nothing to do with tenancy; found while rewriting the function for it. 0043 requires a paid payment row of at least the order total, in the order tenant, unless the caller is the service role. STILL OPEN: public.payments lets a signed-in person insert their own row with status paid - the policy is auth.uid() = user_id - so a determined caller can forge one. Closing it properly means either revoking execute on fulfil_order from anon and authenticated, which needs the ticket-verify route to switch to the service-role client first, or tightening the payments insert policy so a client cannot claim status paid. Both change the purchase flow, so neither was done unasked."
-  }
+  },
+  "stage6": "The cross-tenant isolation assertions, which Stage 0 wrote down as the control that actually prevents the leak and which could not run until a second tenant was possible. They live in supabase/tests/tenancy-stage6.test.mjs: two businesses with deliberately COLLIDING values, every row-spanning function called as an admin of each with the results asserted disjoint, every aggregate asserted to count one business rather than both, and every id-taking function asked about the other business id. It earned its description on the first run. Four predicates - bos_can_see_task, bos_can_see_goal, can_read_community, community_leads - opened with a bare is_admin() disjunct, so an admin of one business could see any row in any business however carefully 0040 had scoped the other branches. 0046 fixes them with an outer tenant gate. It also found a test that was asserting the bug: a stage5c assertion passed a TASK id to bos_can_see_goal and expected true, which only worked because the short circuit meant the lookup never ran."
 }

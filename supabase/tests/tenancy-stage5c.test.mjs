@@ -122,9 +122,20 @@ await as(CAL, t2);
 ok((await one(`select public.bos_can_see_task('${adaTask}') v`)).v === false,
    "an admin of the second business cannot see a task in the first — this answered true before 0040");
 ok((await one(`select public.bos_can_see_task('${calTask}') v`)).v === true, "and can see his own");
+// This assertion used to pass a TASK id to bos_can_see_goal and expect true.
+// It only passed because of the bare is_admin() short circuit that 0046
+// closed: the function never reached the lookup. The test was asserting the
+// bug it should have caught, so it now uses a real goal.
+await owner();
+await db.exec(`insert into public.goals(code,objective,owner_id,tenant_id)
+               values ('G-ADA','Ada goal','${ADA}','${t1}');`);
+const adaGoal = (await one(`select id from public.goals where code='G-ADA'`)).id;
 await as(ADA);
-ok((await one(`select public.bos_can_see_goal('${adaTask}') v`)).v === true,
-   "bos_can_see_goal still admits an admin of the right tenant");
+ok((await one(`select public.bos_can_see_goal('${adaGoal}') v`)).v === true,
+   "bos_can_see_goal admits an admin of the goal's own tenant");
+await as(CAL, t2);
+ok((await one(`select public.bos_can_see_goal('${adaGoal}') v`)).v === false,
+   "and refuses an admin of another, which is what 0046 fixed");
 
 console.log("\nA membership tier is sold by one business:");
 await owner();
