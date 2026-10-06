@@ -1,6 +1,6 @@
 {
   "note": "Every table in public must appear here. A table in neither list fails supabase/tests/tenancy-tables.test.mjs, which is the point: a new table has to be classified at review time rather than discovered after Stage 4 makes it invisible.",
-  "stage": "4",
+  "stage": "7",
   "buckets": {
     "tenant": "Gets tenant_id in Stage 3 and a tenant isolation policy in Stage 4.",
     "identity": "Global on purpose. No tenant_id.",
@@ -17,9 +17,10 @@
     "rate_limits": "Abuse control for the whole install, keyed by bucket and key. Not a tenant record."
   },
   "tenancy": {
-    "tenants": "One row per business. Added in migration 0034.",
+    "tenant_invitations": "Pending invitations to join a business, added in migration 0047. Carries tenant_id already, so Stage 3 does not apply; it has an isolation-shaped policy of its own (admin of that tenant only). The invitee never reads it - they present a token to bos_accept_invitation, which is definer.",
     "tenant_members": "Membership and the role held in it. The spine: role moves off users.primary_role onto this row, because admin is a fact about a person in a tenant.",
-    "tenant_products": "Which products a tenant has switched on, and the settings for each. Carries tenant_id already, so Stage 3 skips it; Stage 4 still gives it a policy."
+    "tenant_products": "Which products a tenant has switched on, and the settings for each. Carries tenant_id already, so Stage 3 skips it; Stage 4 still gives it a policy.",
+    "tenants": "One row per business. Added in migration 0034."
   },
   "tenant": [
     "activities",
@@ -141,6 +142,7 @@
       "sop_versions(sop_id,version)": "sop_id is tenant-owned.",
       "task_reviews(task_id)": "task_id is tenant-owned.",
       "tasks(tenant_id,code)": "Scoped by migration 0036. Was tasks(code), which T-001 exists in every backlog.",
+      "tenant_invitations(tenant_id,email)": "Includes tenant_id by construction: one invitation per address per business.",
       "tenant_members(tenant_id,user_id)": "Includes tenant_id by construction, which is what lets one person belong to two tenants.",
       "tenant_products(tenant_id,product_key)": "Includes tenant_id by construction.",
       "tenants(slug)": "Deliberately global. A slug identifies a tenant across the whole platform, so this is one of the few unique constraints that must NOT be scoped to a tenant.",

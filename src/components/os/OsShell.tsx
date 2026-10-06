@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { NotificationBell } from "@/components/NotificationBell";
 import { GlobalSearch } from "./GlobalSearch";
+import { switchTenant } from "@/app/admin/os/actions";
+import { toast } from "@/components/Toast";
 import { OS_SECTIONS, type NavSection } from "@/lib/os-modules";
 
 /**
@@ -24,6 +26,7 @@ export function OsShell({
   isAdmin = false,
   sections,
   productNames = {},
+  tenants = [],
   alertCount = 0,
   approvalCount = 0,
   children,
@@ -38,6 +41,11 @@ export function OsShell({
    * name rather than hard-coding one.
    */
   productNames?: Record<string, string>;
+  /**
+   * The businesses this person belongs to. One or none renders nothing: a
+   * switcher with a single option is a label pretending to be a control.
+   */
+  tenants?: { id: string; slug: string; name: string; role: string; is_active: boolean }[];
   alertCount?: number;
   approvalCount?: number;
   children: React.ReactNode;
@@ -215,6 +223,7 @@ export function OsShell({
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5">
+            <TenantSwitcher tenants={tenants} />
             <GlobalSearch />
             {/* Approvals and reviews are decided by somebody else and land
                 here; without this an employee had no way of hearing about it. */}
@@ -267,6 +276,94 @@ export function OsShell({
           onEnter={cancelClose}
           onLeave={scheduleClose}
         />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Which business you are acting in, and a way to change it.
+ *
+ * Renders nothing at all when the person belongs to one business or none.
+ * Techxfluence is one business today, so for everybody currently using this
+ * the switcher is invisible — which is the right appearance for a control
+ * with a single option.
+ */
+function TenantSwitcher({
+  tenants,
+}: {
+  tenants: { id: string; slug: string; name: string; role: string; is_active: boolean }[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [pending, start] = useTransition();
+  if (tenants.length < 2) return null;
+
+  const active = tenants.find((t) => t.is_active) ?? tenants[0];
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        disabled={pending}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="flex max-w-[11rem] items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-sm text-fg hover:bg-surface-2 disabled:opacity-50"
+      >
+        <Icon name="nodes" className="h-4 w-4 shrink-0 text-faint" strokeWidth={1.8} />
+        <span className="truncate">{active?.name}</span>
+        <svg viewBox="0 0 24 24" aria-hidden className="h-3 w-3 shrink-0 text-faint"
+             fill="none" stroke="currentColor" strokeWidth="2.5">
+          <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {open && (
+        <>
+          <button
+            aria-label="Close"
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 z-40 cursor-default"
+          />
+          <div
+            role="menu"
+            className="absolute right-0 z-50 mt-1 w-60 overflow-hidden rounded-xl border border-line bg-surface shadow-lg"
+          >
+            <p className="border-b border-line px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-faint">
+              Your businesses
+            </p>
+            {tenants.map((t) => (
+              <button
+                key={t.id}
+                role="menuitem"
+                disabled={pending || t.is_active}
+                onClick={() =>
+                  start(async () => {
+                    const res = await switchTenant(t.id);
+                    if (res && "error" in res && res.error) toast(res.error, "error");
+                    else setOpen(false);
+                  })
+                }
+                className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors ${
+                  t.is_active
+                    ? "bg-brand/10 font-medium text-brand-soft"
+                    : "text-fg hover:bg-surface-2"
+                }`}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate">{t.name}</span>
+                  <span className="block truncate text-[11px] text-faint">{t.role}</span>
+                </span>
+                {t.is_active && (
+                  <svg viewBox="0 0 12 12" aria-hidden className="h-3 w-3 shrink-0" fill="none"
+                       stroke="currentColor" strokeWidth="2.5">
+                    <path d="M2 6.5L4.5 9 10 3.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </button>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

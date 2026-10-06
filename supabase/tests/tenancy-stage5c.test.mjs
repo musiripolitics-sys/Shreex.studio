@@ -80,21 +80,26 @@ ok((await one(`select public.is_host() v`)).v === true, "Dee hosts for the secon
 await as(DEE);
 ok((await one(`select public.is_host() v`)).v === false, "and not for the first");
 
-console.log("\nThe legacy fallback keeps a drifted role working, in the default tenant:");
+// 0040 handled a drifted role with a fallback to users.primary_role inside
+// the default tenant. 0047 replaced that with a trigger, so what is asserted
+// here changed: the membership no longer goes stale in the first place, and
+// is_admin reads nothing but the membership.
+console.log("\nA promotion reaches the membership, so no fallback is needed:");
 await owner();
-// Dee is promoted the way createEmployee does it: users.primary_role only.
-// Her membership role stays what it was, which is the drift this guards.
+// Promoted the way createEmployee does it: users.primary_role only.
 await db.exec(`update public.users set primary_role='admin' where id='${DEE}';`);
+ok((await one(`select role::text r from public.tenant_members where user_id='${DEE}' and tenant_id='${t1}'`))?.r === "admin",
+   "the mirror trigger moved her membership in the first business with it");
 await as(DEE);
-ok((await one(`select public.is_admin() v`)).v === true,
-   "promoted on users.primary_role alone, Dee is still an admin of the default tenant rather than silently demoted");
-ok((await one(`select role::text r from public.tenant_members where user_id='${DEE}' and tenant_id='${t1}'`))?.r !== "admin",
-   "and her membership row is indeed still stale, so it is the fallback doing the work");
+ok((await one(`select public.is_admin() v`)).v === true, "so she is an admin there");
 
-console.log("\nAnd it does NOT leak sideways into another business:");
+console.log("\nBut a role set deliberately per business is left alone:");
+await owner();
+ok((await one(`select role::text r from public.tenant_members where user_id='${DEE}' and tenant_id='${t2}'`))?.r === "event_host",
+   "Dee was made a host of the second business earlier, and the promotion did not overwrite it — the trigger only moves memberships that still agreed with the old value");
 await as(DEE, t2);
 ok((await one(`select public.is_admin() v`)).v === false,
-   "a platform-wide admin flag buys her nothing in the second business, where only the membership counts");
+   "so a platform-wide promotion buys her nothing where somebody chose a different role for her");
 
 console.log("\nA product grant belongs to a membership, not to an account:");
 await owner();

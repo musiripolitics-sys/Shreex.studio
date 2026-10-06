@@ -1,6 +1,6 @@
 {
   "note": "Every SECURITY DEFINER function in public must appear here. A function in neither this file nor the database fails supabase/tests/tenancy-definers.test.mjs. The classification is for prioritising Stage 5; the guard only cares that nothing is unclassified.",
-  "stage": "6 complete",
+  "stage": "7",
   "groups": {
     "A": "Reads that span rows. Set-returning or aggregating. With no tenant predicate they return every tenant's data to any caller. Fixed last, once the isolation test from Stage 6 exists.",
     "B": "Predicates about a row. Each needs 'and is this row in the caller's tenant'.",
@@ -29,6 +29,14 @@
       "setReturning": false,
       "note": "Writes credits to any user id. No ownership check at all. SCOPED in 0042: the target must be an active member of the caller tenant. p_user was never checked, so any caller could credit any account in the database. users.points stays global, which is a data-model question for later.",
       "scopedIn": "0042"
+    },
+    "bos_accept_invitation(p_token uuid)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "jsonb",
+      "setReturning": false,
+      "scopedIn": "0047",
+      "note": "Added in 0047. Definer because the invitee cannot read tenant_invitations - they present a token and the function looks it up for them. The invitation is to an ADDRESS: signing in as somebody else and presenting the token is refused, so a forwarded link does not hand over a seat."
     },
     "bos_can_access(p_section text)": {
       "group": "B",
@@ -103,13 +111,29 @@
       "note": "Trigger. Blocks completion without an assignee, a comment and approval. ADDRESSED in 0045: both task_comments checks are scoped.",
       "scopedIn": "0045"
     },
+    "bos_invite_to_tenant(p_email text, p_role text, p_sections text[])": {
+      "group": "C",
+      "scope": "caller",
+      "returns": "uuid",
+      "setReturning": false,
+      "scopedIn": "0047",
+      "note": "Added in 0047. Invites an address to the CALLER business only - the tenant comes from bos_request_tenant, never from an argument. Re-inviting issues a new token, so a link that leaked stops working."
+    },
     "bos_is_staff()": {
       "group": "E",
       "scope": "caller",
       "returns": "boolean",
       "setReturning": false,
-      "note": "As above. SCOPED in 0040: a tenant predicate on the row lookup.",
-      "scopedIn": "0040"
+      "note": "As above. SCOPED in 0040: a tenant predicate on the row lookup. FALLBACK REMOVED in 0047: the membership is the only authority now. Safe because bos_mirror_primary_role keeps tenant_members.role in step with users.primary_role, which is what the fallback existed to tolerate.",
+      "scopedIn": "0047"
+    },
+    "bos_mirror_primary_role()": {
+      "group": "D",
+      "scope": "all",
+      "returns": "trigger",
+      "setReturning": false,
+      "scopedIn": "0047",
+      "note": "Added in 0047. Mirrors a users.primary_role change onto every membership that still agreed with the OLD value, leaving a role somebody set deliberately per business alone. This is what made the legacy fallback in is_admin unnecessary, and it retires with primary_role itself."
     },
     "bos_my_sections()": {
       "group": "B",
@@ -118,6 +142,14 @@
       "setReturning": false,
       "note": "The nav's source of truth. Becomes per-tenant. SCOPED in 0040: a tenant predicate on the row lookup.",
       "scopedIn": "0040"
+    },
+    "bos_my_tenants()": {
+      "group": "B",
+      "scope": "all",
+      "returns": "record",
+      "setReturning": true,
+      "scopedIn": "0047",
+      "note": "Added in 0047. The businesses the caller belongs to, and which one they are acting in. DELIBERATELY not scoped to one tenant - listing them across tenants is what makes switching possible, which is also why tenant_members has no isolation policy. It answers only about auth.uid()."
     },
     "bos_notify_task_decision()": {
       "group": "D",
@@ -200,6 +232,14 @@
       "setReturning": false,
       "note": "Resolves a SOP to its live version by id. SCOPED in 0039: scoped to the tenant.",
       "scopedIn": "0039"
+    },
+    "bos_switch_tenant(p_tenant uuid)": {
+      "group": "C",
+      "scope": "caller",
+      "returns": "uuid",
+      "setReturning": false,
+      "scopedIn": "0047",
+      "note": "Added in 0047. Writes users.active_tenant_id after refusing any tenant the caller is not an active member of. That refusal is what makes the column safe to trust: the client names a tenant, the database decides."
     },
     "bos_sync_roadmap_tasks()": {
       "group": "C",
@@ -408,8 +448,8 @@
       "scope": "caller",
       "returns": "boolean",
       "setReturning": false,
-      "note": "The most-called function in the system. Becomes a question about a membership, not a user. SCOPED in 0040: reads tenant_members for the tenant this request is about. Being an admin of one business now grants nothing in another. A legacy fallback to users.primary_role applies ONLY inside the default tenant, so a drifted role cannot lock anybody out of Techxfluence and a platform-wide admin flag cannot leak admin sideways into a business someone merely belongs to.",
-      "scopedIn": "0040"
+      "note": "The most-called function in the system. Becomes a question about a membership, not a user. SCOPED in 0040: reads tenant_members for the tenant this request is about. Being an admin of one business now grants nothing in another. A legacy fallback to users.primary_role applies ONLY inside the default tenant, so a drifted role cannot lock anybody out of Techxfluence and a platform-wide admin flag cannot leak admin sideways into a business someone merely belongs to. FALLBACK REMOVED in 0047: the membership is the only authority now. Safe because bos_mirror_primary_role keeps tenant_members.role in step with users.primary_role, which is what the fallback existed to tolerate.",
+      "scopedIn": "0047"
     },
     "is_community_member(p_community uuid)": {
       "group": "B",
@@ -432,8 +472,8 @@
       "scope": "caller",
       "returns": "boolean",
       "setReturning": false,
-      "note": "As above. SCOPED in 0040: a tenant predicate on the row lookup.",
-      "scopedIn": "0040"
+      "note": "As above. SCOPED in 0040: a tenant predicate on the row lookup. FALLBACK REMOVED in 0047: the membership is the only authority now. Safe because bos_mirror_primary_role keeps tenant_members.role in step with users.primary_role, which is what the fallback existed to tolerate.",
+      "scopedIn": "0047"
     },
     "is_paid_member()": {
       "group": "E",
