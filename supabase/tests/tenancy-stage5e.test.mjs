@@ -60,9 +60,14 @@ ok((await one(`select status::text s from public.orders where id='${orderId}'`))
    "the order is still pending rather than marked paid");
 
 console.log("\nA real payment still works:");
-await as(BUY);
+// Written as the service role, which is how ticket-verify does it since 0048.
+// Before that the route ran as the signed-in user, which is exactly why
+// public.payments had to accept a client-written status 'paid' -- and
+// therefore accepted one from anybody.
+await asService();
 await db.exec(`insert into public.payments(user_id,stream,amount,currency,status,provider,related_type,related_id,tenant_id)
                values ('${BUY}','ticket_sales',50000,'INR','paid','razorpay','events','${adaEv}','${t1}');`);
+await as(BUY);
 const pay = (await one(`select id from public.payments where user_id='${BUY}'`)).id;
 const paid = await tryOne(`select public.fulfil_order('${orderId}'::uuid, '${pay}'::uuid) v`);
 ok(!paid.e, `the ticket is issued against a paid payment row (${paid.e ?? "ok"})`);
@@ -75,8 +80,10 @@ await owner();
 await db.exec(`delete from public.payments; delete from public.registrations; delete from public.orders;`);
 await as(BUY);
 const ord2 = (await one(`select public.create_pending_order('${adaEv}','${adaTt}',1,'Buyer','buy@x.c') v`)).v;
+await asService();
 await db.exec(`insert into public.payments(user_id,stream,amount,currency,status,provider,related_type,related_id,tenant_id)
                values ('${BUY}','ticket_sales',100,'INR','paid','razorpay','events','${adaEv}','${t1}');`);
+await as(BUY);
 const cheap = (await one(`select id from public.payments where amount=100`)).id;
 const under = await tryOne(`select public.fulfil_order('${ord2.order_id}'::uuid, '${cheap}'::uuid) v`);
 ok(!!under.e && under.e.includes("PAYMENT_NOT_VERIFIED"),
