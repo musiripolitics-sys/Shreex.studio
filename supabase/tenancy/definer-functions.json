@@ -1,6 +1,6 @@
 {
   "note": "Every SECURITY DEFINER function in public must appear here. A function in neither this file nor the database fails supabase/tests/tenancy-definers.test.mjs. The classification is for prioritising Stage 5; the guard only cares that nothing is unclassified.",
-  "stage": "4",
+  "stage": "5a",
   "groups": {
     "A": "Reads that span rows. Set-returning or aggregating. With no tenant predicate they return every tenant's data to any caller. Fixed last, once the isolation test from Stage 6 exists.",
     "B": "Predicates about a row. Each needs 'and is this row in the caller's tenant'.",
@@ -75,14 +75,16 @@
       "scope": "all",
       "returns": "text",
       "setReturning": false,
-      "note": "Scans events to make a slug unique. Should be unique per tenant, not per platform."
+      "note": "Scans events to make a slug unique. Should be unique per tenant, not per platform. SCOPED in 0038: the uniqueness scan is per tenant, matching the composite slug constraint from 0036.",
+      "scopedIn": "0038"
     },
     "bos_govern_attention()": {
       "group": "A",
       "scope": "all",
       "returns": "record",
       "setReturning": true,
-      "note": "Set-returning, no caller filter of any kind. Returns every governed record that needs attention. Without a tenant predicate it returns every tenant's."
+      "note": "Set-returning, no caller filter of any kind. Returns every governed record that needs attention. Without a tenant predicate it returns every tenant's. SCOPED in 0038: a tenant predicate on each of the four union branches.",
+      "scopedIn": "0038"
     },
     "bos_guard_contact_rate()": {
       "group": "D",
@@ -236,7 +238,8 @@
       "scope": "all",
       "returns": "record",
       "setReturning": true,
-      "note": "Returns the whole staff directory. Role-gated, so an employee of tenant B would see tenant A's people."
+      "note": "Returns the whole staff directory. Role-gated, so an employee of tenant B would see tenant A's people. SCOPED in 0038: joined through tenant_members, and the role column now reports the role held in THIS tenant.",
+      "scopedIn": "0038"
     },
     "can_read_community(p_community uuid)": {
       "group": "B",
@@ -299,7 +302,8 @@
       "scope": "all",
       "returns": "record",
       "setReturning": true,
-      "note": "Set-returning, keyed by ids with no ownership check on them. Pass another tenant's event ids and it answers."
+      "note": "Set-returning, keyed by ids with no ownership check on them. Pass another tenant's event ids and it answers. SCOPED in 0038: the registrations are filtered, which is what makes another tenant event ids answer zero.",
+      "scopedIn": "0038"
     },
     "expire_pending_orders()": {
       "group": "C",
@@ -320,14 +324,16 @@
       "scope": "all",
       "returns": "record",
       "setReturning": true,
-      "note": "Every host's money. The clearest cross-tenant read in the system."
+      "note": "Every host's money. The clearest cross-tenant read in the system. SCOPED in 0038: payments, events and payouts all scoped.",
+      "scopedIn": "0038"
     },
     "get_directory()": {
       "group": "A",
       "scope": "all",
       "returns": "record",
       "setReturning": true,
-      "note": "Set-returning, no filter. Reads the member directory."
+      "note": "Set-returning, no filter. Reads the member directory. SCOPED in 0038: joined through tenant_members; the Elite check is tenant-scoped too.",
+      "scopedIn": "0038"
     },
     "get_event_stats(p_event_id uuid)": {
       "group": "A",
@@ -355,7 +361,8 @@
       "scope": "all",
       "returns": "record",
       "setReturning": true,
-      "note": "Leaderboard across all members. Would mix tenants into one ranking."
+      "note": "Leaderboard across all members. Would mix tenants into one ranking. SCOPED in 0038: joined through tenant_members, so each business has its own leaderboard. users.points stays global, which is a data-model question for later.",
+      "scopedIn": "0038"
     },
     "handle_new_user()": {
       "group": "D",
@@ -460,7 +467,8 @@
       "scope": "all",
       "returns": "jsonb",
       "setReturning": false,
-      "note": "Deliberately readable by anonymous visitors. Under tenancy it has to become per-tenant, or every tenant's public site shows the platform total."
+      "note": "Deliberately readable by anonymous visitors. Under tenancy it has to become per-tenant, or every tenant's public site shows the platform total. SCOPED in 0038: events, partners and cities scoped; the member count became a count of memberships rather than of accounts.",
+      "scopedIn": "0038"
     },
     "record_payout(p_host_id uuid, p_amount integer, p_note text)": {
       "group": "C",
@@ -553,5 +561,6 @@
       "setReturning": false,
       "note": "Looks a promo code up by code alone. Two tenants with the same code collide."
     }
-  }
+  },
+  "stage5": "Group A first, not E. The architecture document ordered Stage 5 as E, B, C and D, then A, on the assumption that FORCE ROW LEVEL SECURITY would close the owner hole at Stage 4. It does not - the owning role carries BYPASSRLS, which FORCE does not remove - so a predicate inside each body is the only control, and A is where rows actually cross between tenants. 0038 scoped eight: every set-returning function, plus public_stats and bos_event_slug. Ten Group A functions are still open and pinned as a set in supabase/tests/tenancy-stage5a.test.mjs, so finishing one shows up as a named change rather than an off-by-one. The two bos_dashboard_summary overloads and bos_section_status are 350 lines between them; the rest take an id and never check whose it is."
 }

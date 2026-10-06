@@ -131,15 +131,17 @@ await db.exec(`insert into public.risks(code,risk,area,impact,likelihood,next_re
                values ('R-01','Ada venue','Events',5,5,current_date - 30,'${t1}');`);
 await db.exec(`insert into public.risks(code,risk,area,impact,likelihood,next_review,tenant_id)
                values ('R-01','Ben venue','Events',5,5,current_date - 30,'${t2}');`);
+// bos_govern_attention used to be the demonstration here and was fixed in
+// 0038, so the example moved to a function Stage 5 has not reached yet.
+// bos_section_status counts rows per section and has no tenant predicate.
 await as(BEN);
 const direct = (await one(`select count(*)::int c from public.risks`)).c;
-let viaFn = "errored";
-try { viaFn = (await one(`select count(*)::int c from public.bos_govern_attention()`)).c; } catch (e) { viaFn = e.message.split("\n")[0]; }
+const counted = (await one(`select (public.bos_section_status() -> 'risks' ->> 'total')::int c`)).c;
 console.log(`  ⚠️  Ben reads ${direct} risk directly — the isolation policy works.`);
-console.log(`  ⚠️  bos_govern_attention() hands him ${viaFn}, because a definer`);
+console.log(`  ⚠️  bos_section_status() counts ${counted} for him, because a definer`);
 console.log(`      function bypasses RLS and the policy never runs inside it.`);
-console.log(`      Eleven group A functions have no caller filter at all; this is`);
-console.log(`      the hole Stage 5 closes, inside each function body.`);
+console.log(`      0038 closed eight of these; nine are left, and no`);
+console.log(`      database-level switch can close them — only the bodies.`);
 await owner();
 
 console.log("\nEvery tenant-owned table carries the policy, not just the ones tested:");
