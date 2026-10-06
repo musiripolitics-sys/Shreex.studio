@@ -1,6 +1,6 @@
 {
   "note": "Every SECURITY DEFINER function in public must appear here. A function in neither this file nor the database fails supabase/tests/tenancy-definers.test.mjs. The classification is for prioritising Stage 5; the guard only cares that nothing is unclassified.",
-  "stage": "5e",
+  "stage": "5 complete",
   "groups": {
     "A": "Reads that span rows. Set-returning or aggregating. With no tenant predicate they return every tenant's data to any caller. Fixed last, once the isolation test from Stage 6 exists.",
     "B": "Predicates about a row. Each needs 'and is this row in the caller's tenant'.",
@@ -84,21 +84,24 @@
       "scope": "all",
       "returns": "trigger",
       "setReturning": false,
-      "note": "Trigger. Enforces the contact form ceiling."
+      "note": "Trigger. Enforces the contact form ceiling. ADDRESSED in 0045: scoped through bos_rate_limit, whose key carries the tenant since 0044, so both the per-address limit and the hourly ceiling are per business.",
+      "scopedIn": "0045"
     },
     "bos_guard_newsletter_rate()": {
       "group": "D",
       "scope": "all",
       "returns": "trigger",
       "setReturning": false,
-      "note": "Trigger. Enforces the newsletter ceiling."
+      "note": "Trigger. Enforces the newsletter ceiling. ADDRESSED in 0045: scoped through bos_rate_limit, as bos_guard_contact_rate.",
+      "scopedIn": "0045"
     },
     "bos_guard_task_completion()": {
       "group": "D",
       "scope": "all",
       "returns": "trigger",
       "setReturning": false,
-      "note": "Trigger. Blocks completion without an assignee, a comment and approval."
+      "note": "Trigger. Blocks completion without an assignee, a comment and approval. ADDRESSED in 0045: both task_comments checks are scoped.",
+      "scopedIn": "0045"
     },
     "bos_is_staff()": {
       "group": "E",
@@ -121,21 +124,24 @@
       "scope": "all",
       "returns": "trigger",
       "setReturning": false,
-      "note": "Trigger. Writes a notification, so it must carry the tenant through."
+      "note": "Trigger. Writes a notification, so it must carry the tenant through. ADDRESSED in 0045: the notification insert is inlined for the same reason.",
+      "scopedIn": "0045"
     },
     "bos_notify_task_review()": {
       "group": "D",
       "scope": "all",
       "returns": "trigger",
       "setReturning": false,
-      "note": "Trigger. As above."
+      "note": "Trigger. As above. ADDRESSED in 0045: the task lookup is scoped, and the notification insert is INLINED rather than calling notify - notify takes its tenant from the request, which for the cron or the webhook is the default tenant, so a notification about another business task would have been filed in the wrong one.",
+      "scopedIn": "0045"
     },
     "bos_open_task_review()": {
       "group": "D",
       "scope": "all",
       "returns": "trigger",
       "setReturning": false,
-      "note": "Trigger. Opens a review row."
+      "note": "Trigger. Opens a review row. ADDRESSED in 0045: the review carries the task tenant.",
+      "scopedIn": "0045"
     },
     "bos_publish_sop(p_version uuid)": {
       "group": "C",
@@ -150,7 +156,8 @@
       "scope": "all",
       "returns": "boolean",
       "setReturning": false,
-      "note": "Platform infrastructure. Stays global, but the buckets should carry a tenant so one tenant cannot exhaust another's allowance."
+      "note": "Platform infrastructure. Stays global, but the buckets should carry a tenant so one tenant cannot exhaust another's allowance. SCOPED in 0044: the KEY carries the tenant. rate_limits stays a platform table with no tenant_id - the rows are counters, not records - but two businesses sharing an address shared an allowance, so one could be exhausted by the other being spammed.",
+      "scopedIn": "0044"
     },
     "bos_request_tenant()": {
       "group": "B",
@@ -199,14 +206,16 @@
       "scope": "all",
       "returns": "integer",
       "setReturning": false,
-      "note": "Rewrites roadmap task links across the table."
+      "note": "Rewrites roadmap task links across the table. SCOPED in 0044: the goals read, the duplicate check and the dependency mirror are all scoped.",
+      "scopedIn": "0044"
     },
     "bos_sync_task_approval()": {
       "group": "D",
       "scope": "all",
       "returns": "trigger",
       "setReturning": false,
-      "note": "Trigger. Keeps the approvals inbox in step."
+      "note": "Trigger. Keeps the approvals inbox in step. ADDRESSED in 0045: the delete, the insert and the update are scoped to the task tenant.",
+      "scopedIn": "0045"
     },
     "bos_task_completion_block(p_task uuid)": {
       "group": "A",
@@ -239,7 +248,8 @@
       "scope": "all",
       "returns": "trigger",
       "setReturning": false,
-      "note": "Trigger on six governed tables. Writes govern_changes, which must inherit the row's tenant or the history becomes invisible."
+      "note": "Trigger on six governed tables. Writes govern_changes, which must inherit the row's tenant or the history becomes invisible. ADDRESSED in 0045: writes new.tenant_id explicitly. A log row that inherited the REQUEST tenant would be invisible to the business whose record changed, leaving a hole in the history.",
+      "scopedIn": "0045"
     },
     "bos_user_directory()": {
       "group": "A",
@@ -294,7 +304,8 @@
       "scope": "row",
       "returns": "void",
       "setReturning": false,
-      "note": "Approves by id."
+      "note": "Approves by id. SCOPED in 0044: the update is scoped.",
+      "scopedIn": "0044"
     },
     "decide_host(p_user_id uuid, p_approve boolean)": {
       "group": "C",
@@ -309,7 +320,8 @@
       "scope": "row",
       "returns": "void",
       "setReturning": false,
-      "note": "Writes a seed post for an event."
+      "note": "Writes a seed post for an event. SCOPED in 0044: the duplicate check and the event lookup are scoped, and the author fallback reads tenant_members instead of the platform admin list.",
+      "scopedIn": "0044"
     },
     "event_attendance(p_event_ids uuid[])": {
       "group": "A",
@@ -388,7 +400,8 @@
       "scope": "all",
       "returns": "trigger",
       "setReturning": false,
-      "note": "Trigger on auth.users. Creates the public.users row, so it decides which tenant a new account joins."
+      "note": "Trigger on auth.users. Creates the public.users row, so it decides which tenant a new account joins. ADDRESSED in 0045: nothing to scope. public.users is global, and the guest-registration claim is deliberately cross-tenant - the account belongs to the person, so a registration they made at any business is theirs.",
+      "scopedIn": "0045"
     },
     "is_admin()": {
       "group": "E",
@@ -435,7 +448,8 @@
       "scope": "row",
       "returns": "jsonb",
       "setReturning": false,
-      "note": "Joins by id."
+      "note": "Joins by id. SCOPED in 0044: the chapter lookup is scoped and the membership carries the tenant.",
+      "scopedIn": "0044"
     },
     "join_waitlist(p_event_id uuid, p_attendee_name text, p_attendee_email text, p_attendee_phone text)": {
       "group": "C",
@@ -490,7 +504,8 @@
       "scope": "row",
       "returns": "integer",
       "setReturning": false,
-      "note": "Fans out notifications for an event."
+      "note": "Fans out notifications for an event. SCOPED in 0044: the event lookup and the follower list are scoped.",
+      "scopedIn": "0044"
     },
     "public_stats()": {
       "group": "A",
@@ -553,7 +568,8 @@
       "scope": "row",
       "returns": "jsonb",
       "setReturning": false,
-      "note": "Files a report against a post id."
+      "note": "Files a report against a post id. SCOPED in 0044: the reported post or comment must be in this business, and the admins notified come from tenant_members rather than public.user_roles - which is the PLATFORM admin list, so every other business admin was being notified.",
+      "scopedIn": "0044"
     },
     "resolve_report(p_report_id uuid)": {
       "group": "C",
@@ -568,28 +584,32 @@
       "scope": "caller",
       "returns": "integer",
       "setReturning": false,
-      "note": "Spends the caller's own credits."
+      "note": "Spends the caller's own credits. SCOPED in 0044: the ledger row carries the tenant. It leaked nothing, being filtered to the caller, but a business could not see what was spent in it without seeing what was spent elsewhere.",
+      "scopedIn": "0044"
     },
     "sync_community_member_count()": {
       "group": "D",
       "scope": "all",
       "returns": "trigger",
       "setReturning": false,
-      "note": "Trigger. Denormalised count."
+      "note": "Trigger. Denormalised count. ADDRESSED in 0045: the count is scoped. It counted every active member of a community across every business.",
+      "scopedIn": "0045"
     },
     "sync_user_email()": {
       "group": "D",
       "scope": "all",
       "returns": "trigger",
       "setReturning": false,
-      "note": "Trigger. Mirrors the auth email onto public.users."
+      "note": "Trigger. Mirrors the auth email onto public.users. ADDRESSED in 0045: nothing to scope: public.users is global by design, one person and one account across every tenant.",
+      "scopedIn": "0045"
     },
     "unlock_file(p_file_id uuid)": {
       "group": "C",
       "scope": "row",
       "returns": "jsonb",
       "setReturning": false,
-      "note": "Unlocks a gated file by id."
+      "note": "Unlocks a gated file by id. SCOPED in 0044: the file lookup and both unlock inserts are scoped. This is the function the Stage 4 demonstration ended on: it handed over another business gated file AND spent the caller credits doing it.",
+      "scopedIn": "0044"
     },
     "validate_promo(p_code text)": {
       "group": "A",
@@ -600,7 +620,7 @@
       "scopedIn": "0039"
     }
   },
-  "stage5": "Groups A, B and E are complete, and 0042 took thirteen of the twenty-eight Group C mutators. Group C is where a missing predicate stops being disclosure and becomes damage: these act on a row named by an argument, and a definer function bypasses RLS. The Stage 4 suite demonstrates what is left with cancel_registration - an admin of one business deletes another business attendee registration outright. Remaining: fifteen C and twelve D. The fifteen are the ticket and order chain (create_pending_order, fulfil_order, register_for_event, register_free_order, cancel_registration, check_in_ticket) plus the community and credit functions; they call each other, so they are worth doing as one piece. D is lighter than the plan assumed, because the column defaults from 0035 already put trigger-written rows in the right tenant - what the triggers still need is scoping on what they READ.",
+  "stage5": "COMPLETE. All 75 SECURITY DEFINER functions have been through it. Six carry no tenant reference and all six are deliberate, pinned by name in supabase/tests/tenancy-stage5f.test.mjs: bos_guard_contact_rate and bos_guard_newsletter_rate are scoped through bos_rate_limit whose key carries the tenant; is_employee delegates to bos_is_staff and is_paid_member to is_admin and member_tier; sync_user_email and handle_new_user operate on public.users, which is global by design. A seventh appearing there is a regression. Order taken: A (0038, 0039), E and B together (0040), the claim correction the tests found (0041), C in three pieces (0042, 0043, 0044) and D (0045). Not the order the architecture document gave, because that order assumed FORCE ROW LEVEL SECURITY would close the owner hole at Stage 4 - it cannot here, the owning role carries BYPASSRLS - so the bodies were the only place to close it and A was where rows actually crossed.",
   "noLongerDefiner": {
     "bos_dashboard_summary(p_from date, p_to date)": "DROPPED in 0039. It could not be called: both overloads defaulted every argument, so a two-date call matched the four-argument one too and Postgres refused with \"is not unique\". Both call sites in the app pass four named arguments. Scoping it would have been 97 lines to protect dead code.",
     "bos_dashboard_summary(p_from date, p_to date, p_owner uuid, p_workstream uuid)": "Made SECURITY INVOKER in 0039, so it is no longer in this inventory. It raises FORBIDDEN unless the caller is an admin, and an admin can read all 27 tables it touches, so it never needed to bypass RLS. As an invoker the isolation policies scope all 35 subqueries at once. Verified behaviour-preserving: 66 of 66 keys identical between the two versions, and every table it reads has a permissive SELECT policy an admin satisfies."

@@ -129,7 +129,7 @@ console.log("      default tenant until a request carries which tenant it is for
 // instead of asserted from the architecture document. Reported rather than
 // asserted: it is known debt that Stage 5 pays off, and a passing assertion
 // here would be claiming a leak is correct.
-console.log("\nThe definer functions are still a hole (this is Stage 5 debt):");
+console.log("\nThe definer functions, which the isolation policies never reach:");
 // A risk in each business. risks is tenant-owned, unlike users, which is
 // global by design and so proves nothing either way.
 await owner();
@@ -138,25 +138,26 @@ await db.exec(`insert into public.risks(code,risk,area,impact,likelihood,next_re
                values ('R-01','Ada venue','Events',5,5,current_date - 30,'${t1}');`);
 await db.exec(`insert into public.risks(code,risk,area,impact,likelihood,next_review,tenant_id)
                values ('R-01','Ben venue','Events',5,5,current_date - 30,'${t2}');`);
-// The demonstration has moved five times now, once per Stage 5 batch,
-// because each batch fixes the function it was using: bos_govern_attention
-// (0038), bos_section_status (0039), bos_can_see_task (0040), redeem_promo
-// (0042), cancel_registration (0043). It uses unlock_file, which is still
-// open: a gated community file unlocked by id, spending the caller's credits.
+// This section demonstrated the Stage 5 gap, and the demonstration moved
+// six times -- once per batch, because each batch fixed the function it was
+// using. 0044 and 0045 finished Group C and D, so there is nothing left to
+// demonstrate. What it reports now is the end state.
 await owner();
-await db.exec(`delete from public.community_files;`);
-await db.exec(`insert into public.community_files(title,storage_path,created_by,credit_cost,tenant_id)
-               values ('Ada deck','ada/deck.pdf','${ADA}',0,'${t1}');`);
-const adaFile = (await one(`select id from public.community_files`)).id;
-await as(BEN);
-const visible = (await one(`select count(*)::int c from public.community_files where id='${adaFile}'`)).c;
-const unlocked = await tryExec(`select public.unlock_file('${adaFile}')`);
-console.log(`  ⚠️  Ben reads ${visible} rows for Ada's gated file — the policy works.`);
-console.log(`  ⚠️  unlock_file on it ${unlocked ? "was refused: " + unlocked : "SUCCEEDED and returned the URL"}.`);
-console.log(`      A definer function bypasses RLS, so the policy never runs inside`);
-console.log(`      it. Groups A, B and E are closed; 0042 and 0043 took nineteen of`);
-console.log(`      the twenty-eight in C. Nine C and eleven D remain.`);
-await owner();
+const unscoped = (await q(`
+  select count(*)::int c from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.prosecdef
+     and p.prosrc not like '%bos_request_tenant%'
+     and p.prosrc not like '%tenant_id%'
+     and p.prosrc not like '%tenant_members%'`))[0].c;
+const total = (await q(`
+  select count(*)::int c from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.prosecdef`))[0].c;
+console.log(`  ✔  ${total - unscoped} of ${total} definer functions carry a tenant reference.`);
+console.log(`     The remaining ${unscoped} are deliberate and pinned by name in`);
+console.log(`     tenancy-stage5f: four scoped through a delegate, two on public.users,`);
+console.log(`     which is global by design. The owner hole is closed in the bodies,`);
+console.log(`     which was the only place it could be closed -- FORCE ROW LEVEL`);
+console.log(`     SECURITY does nothing here, because the owning role has BYPASSRLS.`);
 
 console.log("\nEvery tenant-owned table carries the policy, not just the ones tested:");
 await owner();
