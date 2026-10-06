@@ -734,8 +734,20 @@ export const MODULE_ORDER: string[] = [
 ];
 
 export type NavItem = { href: string; label: string; icon: string };
-/** `icon` is the collapsed rail glyph; the group name only appears on hover. */
-export type NavSection = { label: string; icon: string; items: NavItem[] };
+/**
+ * `icon` is the collapsed rail glyph; the group name only appears on hover.
+ *
+ * `key` is the product this group belongs to, or null for the ungated
+ * "Today" group. It is explicit because the nav used to be matched to a grant
+ * by lowercasing its label — so renaming a group silently ungated it, and a
+ * two-word label could never match at all.
+ */
+export type NavSection = {
+  key: string | null;
+  label: string;
+  icon: string;
+  items: NavItem[];
+};
 
 const m = (key: string): NavItem => ({
   href: `/admin/os/${key}`,
@@ -753,6 +765,7 @@ const m = (key: string): NavItem => ({
  */
 export const OS_SECTIONS: NavSection[] = [
   {
+    key: null,
     label: "Today",
     icon: "home",
     items: [
@@ -762,6 +775,7 @@ export const OS_SECTIONS: NavSection[] = [
     ],
   },
   {
+    key: "plan",
     label: "Plan",
     icon: "rocket",
     items: [
@@ -773,6 +787,7 @@ export const OS_SECTIONS: NavSection[] = [
     ],
   },
   {
+    key: "events",
     label: "Events",
     icon: "calendar",
     items: [
@@ -782,6 +797,7 @@ export const OS_SECTIONS: NavSection[] = [
     ],
   },
   {
+    key: "money",
     label: "Money",
     icon: "trophy",
     items: [
@@ -790,6 +806,7 @@ export const OS_SECTIONS: NavSection[] = [
     ],
   },
   {
+    key: "grow",
     label: "Grow",
     icon: "users",
     items: [
@@ -801,21 +818,25 @@ export const OS_SECTIONS: NavSection[] = [
     ],
   },
   {
+    key: "marketing",
     label: "Marketing",
     icon: "broadcast",
     items: [m("campaigns"), m("content"), m("podcast"), m("competitors")],
   },
   {
+    key: "team",
     label: "Team",
     icon: "medal",
     items: [m("people"), m("hiring"), m("empkpis")],
   },
   {
+    key: "product",
     label: "Product",
     icon: "code",
     items: [m("product"), m("feedback")],
   },
   {
+    key: "govern",
     label: "Govern",
     icon: "book",
     items: [
@@ -830,6 +851,7 @@ export const OS_SECTIONS: NavSection[] = [
     ],
   },
   {
+    key: "insights",
     label: "Insights",
     icon: "sparkle",
     items: [

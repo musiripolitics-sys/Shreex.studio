@@ -4,7 +4,7 @@
   "buckets": {
     "tenant": "Gets tenant_id in Stage 3 and a tenant isolation policy in Stage 4.",
     "identity": "Global on purpose. No tenant_id.",
-    "platform": "Infrastructure, not owned by any tenant. No tenant_id."
+    "platform": "Infrastructure and the global catalogue. Not owned by any tenant, so no tenant_id."
   },
   "identity": {
     "user_roles": "Platform-level roles. Tenant-level role lives on tenant_members.",
@@ -12,6 +12,7 @@
   },
   "platform": {
     "email_failures": "Delivery diagnostics for the platform operator.",
+    "products": "The product catalogue, added in migration 0033. The same nine rows for every tenant. Which products a given tenant has is tenant_products in Stage 2, and THAT table is tenant-owned; this one is not.",
     "rate_limits": "Abuse control for the whole install, keyed by bucket and key. Not a tenant record."
   },
   "tenant": [

@@ -3,35 +3,52 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { OS_SECTIONS } from "@/lib/os-modules";
 
-/** The nine grantable sections. "Today" is not one — everyone with OS access
- *  gets the dashboard, alerts and approvals. */
+/**
+ * The product keys this build has pages for. "Today" is not one — everyone
+ * with OS access gets the dashboard, alerts and approvals.
+ *
+ * Since Stage 1 of the BOS Product Model plan the catalogue lives in
+ * public.products and is read through @/lib/os-products. This list is the
+ * other half of that split: a product exists and is enabled as DATA, but its
+ * routes are CODE, and nothing in a table can conjure a React page. So this
+ * is what the app can route to, not what the install has.
+ *
+ * A key here with no catalogue row is not rendered; a catalogue row whose key
+ * is not here has nothing to link to yet. Neither is an error.
+ */
 export const SECTION_KEYS = [
   "plan", "events", "money", "grow", "marketing",
   "team", "product", "govern", "insights",
 ] as const;
 export type SectionKey = (typeof SECTION_KEYS)[number];
 
+/**
+ * Fallback display names, used before migration 0033 has run and as the seed
+ * for the catalogue. The live names come from products.name via
+ * productLabels(), so an admin renaming Govern to Compliance renames it in
+ * the nav too.
+ */
 export const SECTION_LABELS: Record<SectionKey, string> = {
   plan: "Plan", events: "Events", money: "Money", grow: "Grow",
   marketing: "Marketing", team: "Team", product: "Product",
   govern: "Govern", insights: "Insights",
 };
 
-/** Sidebar group label → grant key. */
-const LABEL_TO_KEY = new Map<string, SectionKey>(
-  SECTION_KEYS.map((k) => [SECTION_LABELS[k], k]),
-);
-
 /**
- * Which section owns a given path. Derived from the nav rather than a second
+ * Which product owns a given path. Derived from the nav rather than a second
  * hand-written list, so a page added to a group is guarded automatically.
  * Longest href wins, so /admin/os/events beats a shorter prefix.
+ *
+ * This used to match a nav group to a grant by lowercasing its label, which
+ * meant renaming a group silently ungated every page under it. Groups now
+ * carry their product key explicitly.
  */
 export function sectionForPath(pathname: string): SectionKey | null {
   let best: { key: SectionKey; len: number } | null = null;
+  const known = new Set<string>(SECTION_KEYS);
   for (const group of OS_SECTIONS) {
-    const key = LABEL_TO_KEY.get(group.label);
-    if (!key) continue; // "Today" is ungated
+    if (!group.key || !known.has(group.key)) continue; // "Today" is ungated
+    const key = group.key as SectionKey;
     for (const item of group.items) {
       if (pathname === item.href || pathname.startsWith(item.href + "/")) {
         if (!best || item.href.length > best.len) best = { key, len: item.href.length };
