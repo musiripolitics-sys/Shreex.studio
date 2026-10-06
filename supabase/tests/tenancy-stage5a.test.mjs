@@ -137,7 +137,7 @@ const pubdir = await q(`select full_name from public.get_directory() order by fu
 ok(!pubdir.some((r) => r.full_name === "Ada"),
    `Ada does not appear in the other business directory (${pubdir.map((r) => r.full_name).join(", ") || "none"})`);
 
-console.log("\nWhat is still open in Group A, read from the function bodies:");
+console.log("\nGroup A is complete, read from the function bodies:");
 await owner();
 // Stated as a fact about the code rather than a measured leak. An empty table
 // would make a cross-tenant count read as zero and prove nothing either way.
@@ -153,26 +153,17 @@ const unscoped = await q(`
    order by 1`);
 // Pinned as a set, not a count, so finishing one shows up as a named change
 // rather than as an off-by-one.
-const stillOpen = [
-  "bos_dashboard_summary(p_from date, p_to date)",
-  "bos_dashboard_summary(p_from date, p_to date, p_owner uuid, p_workstream uuid)",
-  "bos_section_status()",
-  "bos_sop_current(p_sop uuid)",
-  "bos_task_completion_block(p_task uuid)",
-  "get_event_stats(p_event_id uuid)",
-  "get_host_earnings()",
-  "get_organizer(p_id uuid)",
-  "member_discount_pct(p_user_id uuid)",
-  "validate_promo(p_code text)",
-];
+// Emptied by 0039. Group A is complete: every function in it either carries
+// a tenant predicate, became SECURITY INVOKER so the policies scope it, or
+// was dropped as unreachable.
+const stillOpen = [];
 const got = unscoped.map((r) => r.sig).sort();
 ok(JSON.stringify(got) === JSON.stringify([...stillOpen].sort()),
    JSON.stringify(got) === JSON.stringify([...stillOpen].sort())
-     ? `the ten Group A functions still without a tenant predicate are exactly the ones expected`
+     ? `no Group A function is left without a tenant predicate`
      : `CHANGED — now open: ${got.join(", ")}`);
 for (const r of unscoped) console.log(`  ⚠️  ${r.sig}`);
-console.log("      The two dashboard overloads and bos_section_status are 350 lines");
-console.log("      between them; the rest take an id and never check it.");
+console.log("      B, C, D and E remain: 58 functions.");
 
 console.log(`\n${state.pass} passed, ${state.fail} failed`);
 process.exit(state.fail ? 1 : 0);

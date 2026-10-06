@@ -131,17 +131,21 @@ await db.exec(`insert into public.risks(code,risk,area,impact,likelihood,next_re
                values ('R-01','Ada venue','Events',5,5,current_date - 30,'${t1}');`);
 await db.exec(`insert into public.risks(code,risk,area,impact,likelihood,next_review,tenant_id)
                values ('R-01','Ben venue','Events',5,5,current_date - 30,'${t2}');`);
-// bos_govern_attention used to be the demonstration here and was fixed in
-// 0038, so the example moved to a function Stage 5 has not reached yet.
-// bos_section_status counts rows per section and has no tenant predicate.
+// The demonstration has moved twice, because each batch of Stage 5 fixes the
+// function it was using: bos_govern_attention in 0038, then bos_section_status
+// in 0039. It now uses a Group B predicate, which Stage 5 has not reached.
+await owner();
+await db.exec(`delete from public.tasks;`);
+await db.exec(`insert into public.tasks(code,title,tenant_id) values ('T-ADA','Ada work','${t1}');`);
+const adaTask = (await one(`select id from public.tasks where code='T-ADA'`)).id;
 await as(BEN);
-const direct = (await one(`select count(*)::int c from public.risks`)).c;
-const counted = (await one(`select (public.bos_section_status() -> 'risks' ->> 'total')::int c`)).c;
-console.log(`  ⚠️  Ben reads ${direct} risk directly — the isolation policy works.`);
-console.log(`  ⚠️  bos_section_status() counts ${counted} for him, because a definer`);
+const readable = (await one(`select count(*)::int c from public.tasks where id='${adaTask}'`)).c;
+const predicate = (await one(`select public.bos_can_see_task('${adaTask}') v`)).v;
+console.log(`  ⚠️  Ben reads ${readable} rows for Ada's task — the isolation policy works.`);
+console.log(`  ⚠️  bos_can_see_task() answers ${predicate} about it, because a definer`);
 console.log(`      function bypasses RLS and the policy never runs inside it.`);
-console.log(`      0038 closed eight of these; nine are left, and no`);
-console.log(`      database-level switch can close them — only the bodies.`);
+console.log(`      Group A is closed. B, C, D and E remain — 58 functions, and no`);
+console.log(`      database-level switch can close them, only the bodies.`);
 await owner();
 
 console.log("\nEvery tenant-owned table carries the policy, not just the ones tested:");

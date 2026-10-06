@@ -1,6 +1,6 @@
 {
   "note": "Every SECURITY DEFINER function in public must appear here. A function in neither this file nor the database fails supabase/tests/tenancy-definers.test.mjs. The classification is for prioritising Stage 5; the guard only cares that nothing is unclassified.",
-  "stage": "5a",
+  "stage": "5b",
   "groups": {
     "A": "Reads that span rows. Set-returning or aggregating. With no tenant predicate they return every tenant's data to any caller. Fixed last, once the isolation test from Stage 6 exists.",
     "B": "Predicates about a row. Each needs 'and is this row in the caller's tenant'.",
@@ -55,20 +55,6 @@
       "returns": "uuid",
       "setReturning": false,
       "note": "Added in 0034. The tenant the caller is acting in, which every Stage 4 policy compares against. A tenant_id claim in the token wins but is checked against membership first, so a claim naming someone else tenant returns null rather than granting it. Definer for the same reason is_admin is: it is called from inside policies and nesting a policy evaluation in every one of them buys nothing."
-    },
-    "bos_dashboard_summary(p_from date, p_to date)": {
-      "group": "A",
-      "scope": "all",
-      "returns": "jsonb",
-      "setReturning": false,
-      "note": "Aggregates tasks, goals, money and events into one jsonb. Every number would span tenants."
-    },
-    "bos_dashboard_summary(p_from date, p_to date, p_owner uuid, p_workstream uuid)": {
-      "group": "A",
-      "scope": "all",
-      "returns": "jsonb",
-      "setReturning": false,
-      "note": "Same, with filters that do not include the tenant."
     },
     "bos_event_slug(p_title text, p_id uuid)": {
       "group": "A",
@@ -168,7 +154,8 @@
       "scope": "all",
       "returns": "jsonb",
       "setReturning": false,
-      "note": "Per-section counts for the nav. Counts would include other tenants' rows."
+      "note": "Per-section counts for the nav. Counts would include other tenants' rows. SCOPED in 0039: a tenant predicate in each of the five dynamic queries. Kept definer because it is gated on bos_is_staff, and as an invoker an employee counts would shrink to what they can read, which is a different number from the one the nav asks for.",
+      "scopedIn": "0039"
     },
     "bos_seed_tenant_membership()": {
       "group": "D",
@@ -189,7 +176,8 @@
       "scope": "row",
       "returns": "uuid",
       "setReturning": false,
-      "note": "Resolves a SOP to its live version by id."
+      "note": "Resolves a SOP to its live version by id. SCOPED in 0039: scoped to the tenant.",
+      "scopedIn": "0039"
     },
     "bos_sync_roadmap_tasks()": {
       "group": "C",
@@ -210,7 +198,8 @@
       "scope": "row",
       "returns": "text",
       "setReturning": false,
-      "note": "Explains why a task cannot complete. Reveals the task's state to any caller."
+      "note": "Explains why a task cannot complete. Reveals the task's state to any caller. SCOPED in 0039: scoped to the tenant.",
+      "scopedIn": "0039"
     },
     "bos_tenant_default()": {
       "group": "B",
@@ -340,21 +329,24 @@
       "scope": "row",
       "returns": "jsonb",
       "setReturning": false,
-      "note": "Aggregates one event. The event id is not checked for ownership."
+      "note": "Aggregates one event. The event id is not checked for ownership. SCOPED in 0039: the event lookup is scoped, so another business event raises EVENT_NOT_FOUND rather than reporting its takings.",
+      "scopedIn": "0039"
     },
     "get_host_earnings()": {
       "group": "A",
       "scope": "caller",
       "returns": "jsonb",
       "setReturning": false,
-      "note": "Filtered to auth.uid(), so it leaks nothing today. It still needs scoping once one person hosts in two tenants."
+      "note": "Filtered to auth.uid(), so it leaks nothing today. It still needs scoping once one person hosts in two tenants. SCOPED in 0039: scoped. It leaked nothing, being filtered to auth.uid(), but one person hosting in two businesses would have been shown a merged balance.",
+      "scopedIn": "0039"
     },
     "get_organizer(p_id uuid)": {
       "group": "A",
       "scope": "row",
       "returns": "jsonb",
       "setReturning": false,
-      "note": "Reads a user profile by id. No ownership check."
+      "note": "Reads a user profile by id. No ownership check. SCOPED in 0039: joined through tenant_members, and the role now comes from the membership.",
+      "scopedIn": "0039"
     },
     "get_top_members(p_limit integer)": {
       "group": "A",
@@ -439,7 +431,8 @@
       "scope": "row",
       "returns": "integer",
       "setReturning": false,
-      "note": "Reads another user's tier by id."
+      "note": "Reads another user's tier by id. SCOPED in 0039: the membership lookup is scoped.",
+      "scopedIn": "0039"
     },
     "member_tier()": {
       "group": "E",
@@ -559,8 +552,13 @@
       "scope": "row",
       "returns": "integer",
       "setReturning": false,
-      "note": "Looks a promo code up by code alone. Two tenants with the same code collide."
+      "note": "Looks a promo code up by code alone. Two tenants with the same code collide. SCOPED in 0039: scoped, which matters because codes are looked up by code alone and became unique per tenant in 0036.",
+      "scopedIn": "0039"
     }
   },
-  "stage5": "Group A first, not E. The architecture document ordered Stage 5 as E, B, C and D, then A, on the assumption that FORCE ROW LEVEL SECURITY would close the owner hole at Stage 4. It does not - the owning role carries BYPASSRLS, which FORCE does not remove - so a predicate inside each body is the only control, and A is where rows actually cross between tenants. 0038 scoped eight: every set-returning function, plus public_stats and bos_event_slug. Ten Group A functions are still open and pinned as a set in supabase/tests/tenancy-stage5a.test.mjs, so finishing one shows up as a named change rather than an off-by-one. The two bos_dashboard_summary overloads and bos_section_status are 350 lines between them; the rest take an id and never check whose it is."
+  "stage5": "Group A is complete: 0038 scoped eight, 0039 the remaining ten (two of which were a dropped dead overload and a flip to SECURITY INVOKER rather than a predicate). Group A was taken first, out of the order the architecture document gives, because FORCE ROW LEVEL SECURITY does not close the owner hole here - the owning role carries BYPASSRLS - so a predicate inside each body is the only control, and A is where rows cross. Still to do: B (11 row predicates), C (28 mutators), D (12 triggers) and E (7 caller-role predicates). D is in better shape than the plan assumed, because the column defaults from 0035 already put trigger-written rows in the right tenant.",
+  "noLongerDefiner": {
+    "bos_dashboard_summary(p_from date, p_to date)": "DROPPED in 0039. It could not be called: both overloads defaulted every argument, so a two-date call matched the four-argument one too and Postgres refused with \"is not unique\". Both call sites in the app pass four named arguments. Scoping it would have been 97 lines to protect dead code.",
+    "bos_dashboard_summary(p_from date, p_to date, p_owner uuid, p_workstream uuid)": "Made SECURITY INVOKER in 0039, so it is no longer in this inventory. It raises FORBIDDEN unless the caller is an admin, and an admin can read all 27 tables it touches, so it never needed to bypass RLS. As an invoker the isolation policies scope all 35 subqueries at once. Verified behaviour-preserving: 66 of 66 keys identical between the two versions, and every table it reads has a permissive SELECT policy an admin satisfies."
+  }
 }
