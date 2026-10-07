@@ -19,6 +19,18 @@ import nodemailer, { type Transporter } from "nodemailer";
 // FROM falls back to the authenticated mailbox rather than a fixed address:
 // you can always send as yourself, but sending as anyone else needs Gmail's
 // "Send mail as" verification, and a wrong default fails at delivery time.
+/**
+ * The site these links point at.
+ *
+ * Falls back to the domain, not to an empty string. It used to be
+ * `SITE` in fourteen places, which meant an
+ * unset variable turned every link in every email into a relative path --
+ * "/events/slug" on its own, broken in any mail client. The rest of the app
+ * (sitemap, robots, the JSON-LD) already fell back to the domain, so a
+ * deployment could look correct in a sitemap while its email was unusable.
+ */
+const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://techxfluence.com";
+
 const FROM =
   process.env.EMAIL_FROM || process.env.SMTP_USER || "Techxfluence";
 
@@ -233,7 +245,7 @@ export async function sendMembershipRenewal(opts: {
   tier: string;
   expired: boolean;
 }): Promise<void> {
-  const url = `${process.env.NEXT_PUBLIC_SITE_URL || ""}/membership`;
+  const url = `${SITE}/membership`;
   await send(
     opts.to,
     opts.expired
@@ -258,7 +270,7 @@ export async function sendSpotOpened(opts: {
   eventTitle: string;
   slug: string;
 }): Promise<void> {
-  const url = `${process.env.NEXT_PUBLIC_SITE_URL || ""}/events/${opts.slug}`;
+  const url = `${SITE}/events/${opts.slug}`;
   await send(
     opts.to,
     `A spot just opened — ${opts.eventTitle}`,
@@ -367,7 +379,7 @@ export async function sendHostDecision(opts: {
         `Hi ${opts.name}, your request for Host access has been approved. You can now
          submit events for approval and manage your attendees from your dashboard.
          <p style="margin:18px 0 0;">
-           <a href="${process.env.NEXT_PUBLIC_SITE_URL || ""}/host/dashboard"
+           <a href="${SITE}/host/dashboard"
               style="display:inline-block;background:#16a34a;color:#fff;text-decoration:none;
                      font-weight:600;padding:11px 22px;border-radius:9999px;">Go to Host dashboard</a>
          </p>`,
@@ -393,7 +405,7 @@ export async function sendHostDecision(opts: {
 // notification bell (0021) reaches whoever happens to open it; these reach
 // them where they actually are.
 
-const osUrl = (path: string) => `${process.env.NEXT_PUBLIC_SITE_URL || ""}${path}`;
+const osUrl = (path: string) => `${SITE}${path}`;
 
 function button(href: string, label: string, colour = "#ff5a1f"): string {
   return `<p style="margin:18px 0 0;">
@@ -542,7 +554,7 @@ export async function sendEmployeeWelcome(opts: {
   title?: string | null;
   sections: string[];
 }): Promise<void> {
-  const site = process.env.NEXT_PUBLIC_SITE_URL || "";
+  const site = SITE;
   await send(
     opts.to,
     "Your Techxfluence Business OS account is ready",
@@ -605,7 +617,7 @@ export async function sendHostProposalReceived(opts: {
 }
 
 export async function sendNewsletterWelcome(opts: { to: string }): Promise<void> {
-  const site = process.env.NEXT_PUBLIC_SITE_URL || "";
+  const site = SITE;
   await send(
     opts.to,
     "You're subscribed to Techxfluence",
@@ -636,7 +648,7 @@ export async function sendInternalAlert(opts: {
       opts.heading,
       `Hi ${opts.name}, ${opts.what}
        ${opts.details ? facts(opts.details) : ""}
-       ${button(`${process.env.NEXT_PUBLIC_SITE_URL || ""}${opts.href}`, opts.cta)}`,
+       ${button(`${SITE}${opts.href}`, opts.cta)}`,
     ),
   );
 }
@@ -659,7 +671,7 @@ export async function sendApprovalDecision(opts: {
        — <strong>${opts.requestTitle}</strong> — was
        ${opts.approved ? "approved" : "declined"}.
        ${opts.comments ? `<p style="margin:14px 0 0;"><strong>Note:</strong> ${opts.comments}</p>` : ""}
-       ${button(`${process.env.NEXT_PUBLIC_SITE_URL || ""}/admin/os/approvals`, "See the request")}`,
+       ${button(`${SITE}/admin/os/approvals`, "See the request")}`,
     ),
   );
 }
