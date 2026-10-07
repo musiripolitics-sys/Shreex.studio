@@ -11,7 +11,7 @@ import {
   createOrganisation, renameOrganisation, setOrganisationStatus, switchTenant,
   grantPlatformAdmin, revokePlatformAdmin, assignTenantAdmin, unassignTenantMember,
   inviteToTenantById,
-} from "../actions";
+} from "@/app/shreex/actions";
 
 /** The same rule as public.bos_slugify, for previewing the address as you type. */
 function slugify(s: string): string {

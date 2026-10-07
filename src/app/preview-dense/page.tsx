@@ -1,5 +1,5 @@
-import { PlatformClient } from "../shreex/platform/PlatformClient";
-import { PlatformTopBar } from "../shreex/platform/PlatformTopBar";
+import { PlatformClient } from "../(platform)/shreex/platform/PlatformClient";
+import { PlatformTopBar } from "../(platform)/shreex/platform/PlatformTopBar";
 
 /**
  * The real platform console, rendered with fixture props and no database.

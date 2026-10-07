@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "@/components/Toast";
-import { switchTenant } from "../actions";
+import { switchTenant } from "@/app/shreex/actions";
 
 /**
  * A top bar that says platform, not business.
