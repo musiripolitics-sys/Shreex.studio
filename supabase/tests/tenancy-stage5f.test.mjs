@@ -187,6 +187,9 @@ const allowed = [
   // bos_tenant_role(p_tenant), membership in the NAMED tenant.
   "bos_rename_tenant(p_tenant uuid, p_name text)",
   "bos_revoke_platform_admin(p_user uuid)",  // 0052
+  // 0054, same structural reason as bos_rename_tenant: on public.tenants
+  // the row id IS the tenant, so a tenant_id predicate cannot exist.
+  "bos_update_tenant_profile(p_tenant uuid, p_profile jsonb)",
   "handle_new_user()",            // public.users is global
   "is_employee()",                // delegates to bos_is_staff
   "is_paid_member()",             // delegates to is_admin and member_tier
@@ -195,7 +198,7 @@ const allowed = [
 const got = unscoped.map((r) => r.sig);
 ok(JSON.stringify(got) === JSON.stringify(allowed),
    JSON.stringify(got) === JSON.stringify(allowed)
-     ? `exactly thirteen definer functions carry no tenant reference, and all thirteen are deliberate: ${allowed.map((a) => a.replace("()", "")).join(", ")}`
+     ? `exactly fourteen definer functions carry no tenant reference, and all fourteen are deliberate: ${allowed.map((a) => a.replace("()", "")).join(", ")}`
      : `CHANGED — now unscoped: ${got.join(", ")}`);
 
 console.log(`\n${state.pass} passed, ${state.fail} failed`);

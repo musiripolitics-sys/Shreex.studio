@@ -1,4 +1,5 @@
 import { PlatformClient } from "../shreex/platform/PlatformClient";
+import { PlatformTopBar } from "../shreex/platform/PlatformTopBar";
 
 /**
  * The real platform console, rendered with fixture props and no database.
@@ -35,17 +36,14 @@ const platformAdmins = [
 export default function Preview() {
   return (
     <main id="main" className="min-h-dvh bg-ink">
-      <header className="flex h-12 items-center justify-between gap-3 border-b border-line bg-fg px-4 text-white">
-        <div className="flex items-center gap-2.5">
-          <span className="grid h-6 w-6 place-items-center rounded bg-white/15 text-[10px] font-bold">P</span>
-          <span className="font-display text-[13px] font-semibold">Platform</span>
-          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em]">Super admin</span>
-        </div>
-        <div className="flex items-center gap-2 text-[12px] text-white/70">
-          <span>admin@techxfluence.com</span>
-          <span className="rounded bg-white/15 px-2 py-1 text-white">Enter a business ⌄</span>
-        </div>
-      </header>
+      <PlatformTopBar
+        email="admin@techxfluence.com"
+        tenants={[
+          { id: "t1", slug: "techxfluence", name: "Techxfluence", role: "super_admin", is_active: true },
+          { id: "t2", slug: "jilo", name: "Jilo", role: "super_admin", is_active: false },
+          { id: "t3", slug: "txf-service", name: "TFX Service", role: "super_admin", is_active: false },
+        ]}
+      />
       <div className="mx-auto max-w-5xl px-4 py-4 md:px-6">
         <PlatformClient
           orgs={orgs}

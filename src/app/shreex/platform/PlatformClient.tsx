@@ -10,6 +10,7 @@ import { shortDate } from "@/lib/bos";
 import {
   createOrganisation, renameOrganisation, setOrganisationStatus, switchTenant,
   grantPlatformAdmin, revokePlatformAdmin, assignTenantAdmin, unassignTenantMember,
+  inviteToTenantById,
 } from "../actions";
 
 /** The same rule as public.bos_slugify, for previewing the address as you type. */
@@ -148,10 +149,59 @@ export function PlatformClient({
                 "The address is built from the name unless you set one."
               )}
             </p>
-            <p className="mt-3 rounded-xl border border-line bg-surface-2/50 px-3 py-2 text-[11px] text-muted">
+            {/*
+              Everything past the name is optional on purpose. A business
+              created during a phone call must not be blocked on knowing its
+              registered address, and a half-filled record beats a business
+              that does not exist yet.
+            */}
+            <div className="mt-3 grid gap-2.5 sm:grid-cols-3">
+              <label className="block">
+                <span className={label}>Website</span>
+                <input name="website" placeholder="https://" className={field} />
+              </label>
+              <label className="block">
+                <span className={label}>Contact email</span>
+                <input name="contact_email" type="email" placeholder="hello@" className={field} />
+              </label>
+              <label className="block">
+                <span className={label}>Phone</span>
+                <input name="phone" className={field} />
+              </label>
+              <label className="block">
+                <span className={label}>Industry</span>
+                <input name="industry" placeholder="Events, Food, Software…" className={field} />
+              </label>
+              <label className="block">
+                <span className={label}>City</span>
+                <input name="city" className={field} />
+              </label>
+              <label className="block">
+                <span className={label}>Country</span>
+                <input name="country" className={field} />
+              </label>
+              <label className="block">
+                <span className={label}>Employees</span>
+                <input name="employee_count" type="number" min={0} placeholder="headcount" className={field} />
+              </label>
+              <label className="block">
+                <span className={label}>Business started</span>
+                <input name="started_on" type="date" className={field} />
+              </label>
+              <label className="block sm:col-span-1">
+                <span className={label}>Address</span>
+                <input name="address" className={field} />
+              </label>
+            </div>
+            <label className="mt-2.5 block">
+              <span className={label}>Notes</span>
+              <input name="notes" placeholder="anything worth knowing about this business" className={field} />
+            </label>
+
+            <p className="mt-3 rounded border border-line bg-surface-2/50 px-3 py-2 text-[11px] text-muted">
               It starts empty — no people, no events, no money — with the full product catalogue,
-              and sees nothing belonging to any other business. You will be its only administrator
-              until you appoint one.
+              and sees nothing belonging to any other business. You administer it until you appoint
+              or invite somebody, which is the next thing to do.
             </p>
             <div className="mt-3 flex items-center gap-2">
               <button type="submit" disabled={saving || name.trim().length < 2}
@@ -287,17 +337,6 @@ export function PlatformClient({
   );
 }
 
-function Stat({
-  label: l, value, hint, alert = false,
-}: { label: string; value: number; hint?: string; alert?: boolean }) {
-  return (
-    <div className={`${card} px-4 py-3`}>
-      <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{l}</p>
-      <p className={`mt-0.5 font-display text-2xl font-bold ${alert ? "text-amber-600" : "text-fg"}`}>{value}</p>
-      {hint && <p className="mt-0.5 truncate text-[11px] text-faint">{hint}</p>}
-    </div>
-  );
-}
 
 /**
  * Who administers one business, and the control that hands it over.
@@ -322,6 +361,9 @@ function OrgAdmins({
 }) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("admin");
+  /** The address that turned out to have no account, so the offer can name it. */
+  const [noAccount, setNoAccount] = useState<string | null>(null);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
 
   return (
     <div className="border-t border-line bg-surface-2/40 px-3.5 py-3">
@@ -373,12 +415,28 @@ function OrgAdmins({
             </ul>
           )}
 
+          {/*
+            Appoint, and fall back to invite.
+            Appointing needs an existing account; setting a business up for a
+            client is precisely when the administrator has none. The old error
+            told you to "invite them from inside the business", which a
+            platform owner cannot do — bos_invite_to_tenant invites into the
+            REQUEST tenant, and this is a business you have no reason to be
+            standing in. So the refusal becomes an offer.
+          */}
           <form
             action={(fd) =>
               start(async () => {
                 const res = await assignTenantAdmin(fd);
-                if ("error" in res && res.error) return toast(res.error, "error");
+                if ("error" in res && res.error) {
+                  if (res.error.includes("No account with the address")) {
+                    setNoAccount(email.trim());
+                    return;
+                  }
+                  return toast(res.error, "error");
+                }
                 toast(`Appointed to ${org.name}`, "success");
+                setNoAccount(null);
                 setEmail("");
               })
             }
@@ -403,10 +461,58 @@ function OrgAdmins({
               {saving ? "Appointing…" : "Appoint"}
             </button>
           </form>
+          {noAccount && (
+            <div className="mt-2.5 rounded border border-amber-200 bg-amber-50 px-3 py-2.5">
+              <p className="text-[12px] text-amber-900">
+                <strong className="font-semibold">{noAccount}</strong> has no account yet, so there is
+                nobody to appoint. Invite them instead — they will get a link that creates their
+                account and puts them straight into {org.name}.
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() =>
+                    start(async () => {
+                      const fd = new FormData();
+                      fd.set("tenantId", org.id);
+                      fd.set("email", noAccount);
+                      fd.set("role", role);
+                      const res = await inviteToTenantById(fd);
+                      if ("error" in res && res.error) return toast(res.error, "error");
+                      const link = `${window.location.origin}/invite/${(res as { token: string }).token}`;
+                      await navigator.clipboard?.writeText(link).catch(() => {});
+                      setInviteLink(link);
+                      setNoAccount(null);
+                      setEmail("");
+                      toast("Invitation created and the link copied", "success");
+                    })
+                  }
+                  className="rounded-full bg-brand px-3 py-1 text-[12px] font-semibold text-white disabled:opacity-50"
+                >
+                  Invite {noAccount} as {role === "admin" ? "admin" : role.replace(/_/g, " ")}
+                </button>
+                <button type="button" onClick={() => setNoAccount(null)} className="text-[11px] text-amber-800 hover:underline">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {inviteLink && (
+            <div className="mt-2.5 rounded border border-line bg-surface-2/60 px-3 py-2.5">
+              <p className="text-[11px] font-medium text-fg">Send them this link</p>
+              <p className="mt-1 break-all font-mono text-[11px] text-muted">{inviteLink}</p>
+              <p className="mt-1 text-[11px] text-faint">
+                Copied to your clipboard. It lasts fourteen days, and it is for that address only —
+                forwarding it does not hand over the seat. Nothing was emailed from here.
+              </p>
+            </div>
+          )}
+
           <p className="mt-2 text-[11px] text-faint">
-            The account has to exist already — this appoints somebody, it does not invite them. For
-            an address with no account, enter the business and send an invitation instead.
-            Appointing is written to {org.name} audit log.
+            Appointing adds somebody who already has an account. Inviting works for anybody. Both
+            are written to {org.name} audit log.
           </p>
         </>
       )}

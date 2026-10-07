@@ -1066,10 +1066,21 @@ export async function createOrganisation(formData: FormData) {
   const slug = String(formData.get("slug") ?? "").trim();
   if (name.length < 2) return { error: "Give the business a name." };
 
+  // Everything the form offers beyond name and address. Sent as one object so
+  // adding a field later is a form change rather than a migration, and so a
+  // field this build does not know about is ignored instead of rejected.
+  const profile: Record<string, string> = {};
+  for (const k of ["website", "contact_email", "phone", "address", "city",
+                   "country", "industry", "employee_count", "started_on", "notes"]) {
+    const v = String(formData.get(k) ?? "").trim();
+    if (v) profile[k] = v;
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("bos_create_tenant", {
     p_name: name,
     p_slug: slug || null,
+    p_profile: profile,
   });
 
   if (error) {
@@ -1403,5 +1414,76 @@ export async function unassignTenantMember(tenantId: string, userId: string) {
 
   revalidatePath("/shreex/platform");
   revalidatePath(OS, "layout");
+  return { success: true };
+}
+
+/**
+ * Invite somebody into a named business, when they have no account yet.
+ *
+ * The other half of assignTenantAdmin, and the half that matters when a
+ * business is being set up FOR somebody. Appointing needs an existing account;
+ * this does not. Returns the token, which the console turns into a link —
+ * nothing is emailed from here, because sending an invitation is a decision
+ * and an invitation is a seat in a business.
+ */
+export async function inviteToTenantById(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not signed in" };
+
+  const tenantId = String(formData.get("tenantId") ?? "");
+  const email = String(formData.get("email") ?? "").trim();
+  const role = String(formData.get("role") ?? "admin");
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("bos_invite_to_tenant_by_id", {
+    p_tenant: tenantId,
+    p_email: email,
+    p_role: role,
+    p_sections: [],
+  });
+
+  if (error) {
+    const m = error.message;
+    if (m.includes("bos_invite_to_tenant_by_id")) return { error: "Run migration 0054 in Supabase first." };
+    if (m.includes("NOT_SUPER_ADMIN")) return { error: "Only a platform administrator can do that." };
+    if (m.includes("ALREADY_A_MEMBER")) return { error: "They're already in that business." };
+    if (m.includes("BAD_EMAIL")) return { error: "That doesn't look like an email address." };
+    if (m.includes("BAD_ROLE")) return { error: `"${role}" isn't a role.` };
+    if (m.includes("NO_SUCH_TENANT")) return { error: "That business no longer exists." };
+    return { error: m };
+  }
+
+  revalidatePath("/shreex/platform");
+  return { success: true, token: data as string };
+}
+
+/** Edit a business's details. Only the fields sent are written. */
+export async function updateTenantProfile(formData: FormData) {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not signed in" };
+
+  const tenantId = String(formData.get("tenantId") ?? "");
+  const profile: Record<string, string> = {};
+  for (const k of ["website", "contact_email", "phone", "address", "city",
+                   "country", "industry", "employee_count", "started_on", "notes"]) {
+    const raw = formData.get(k);
+    // Present-but-empty clears the field; absent leaves it alone. That
+    // distinction is why the payload is an object rather than ten columns.
+    if (raw !== null) profile[k] = String(raw).trim();
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("bos_update_tenant_profile", {
+    p_tenant: tenantId,
+    p_profile: profile,
+  });
+  if (error) {
+    const m = error.message;
+    if (m.includes("bos_update_tenant_profile")) return { error: "Run migration 0054 in Supabase first." };
+    if (m.includes("FORBIDDEN")) return { error: "You don't administer that business." };
+    return { error: m };
+  }
+
+  revalidatePath("/shreex/platform");
   return { success: true };
 }

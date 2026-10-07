@@ -24,8 +24,16 @@ export function PlatformTopBar({
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
 
+  // No backdrop-blur on the header, and that is load-bearing rather than
+  // taste. An element with a backdrop-filter becomes a containing block for
+  // position:fixed descendants AND creates its own stacking context. With it
+  // on, the "Enter a business" menu — absolute z-50 — was trapped inside the
+  // header's z-30, so the Super admin label sat on top of it, and the
+  // fixed inset-0 click-away overlay covered only the header rather than the
+  // viewport. The background was bg-fg/95 anyway, so the blur bought a sliver
+  // of translucency at the cost of the menu working.
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-fg/95 text-white backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-line bg-fg text-white">
       <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 px-4 md:px-6">
         <div className="flex min-w-0 items-center gap-2.5">
           <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white/15 text-[11px] font-bold">

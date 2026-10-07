@@ -70,13 +70,13 @@
       "note": "The visibility predicate behind the Plan section. Needs a tenant clause. SCOPED in 0040: predicates on all six branches, and the is_admin short circuit above them is scoped too - which is why B and E had to be done together. CORRECTED in 0046: 0040 scoped every exists() branch and left is_admin() standing alone at the front, so the first branch short-circuited and ANY admin passed for ANY row. An outer tenant gate now requires the row to be in the caller business before any branch is consulted. Found by the Stage 6 isolation test on its first run.",
       "scopedIn": "0046"
     },
-    "bos_create_tenant(p_name text, p_slug text)": {
+    "bos_create_tenant(p_name text, p_slug text, p_profile jsonb)": {
       "group": "C",
       "scope": "platform",
       "returns": "uuid",
       "setReturning": false,
-      "note": "Creates a tenant, its first admin membership and its product list. The only way to insert a tenants row: 0050 removed the write policy on that table, so this function is the door and bos_platform_owner_check is the lock. Scope is deliberately platform rather than row -- a new tenant has no tenant to be in.",
-      "scopedIn": "0050"
+      "note": "Creates a tenant, its first admin membership and its product list. The only way to insert a tenants row: 0050 removed the write policy on that table, so this function is the door and bos_platform_owner_check is the lock. Scope is deliberately platform rather than row -- a new tenant has no tenant to be in. REPLACED in 0054 by a three-argument form taking the business profile as jsonb, so the next field needs no migration and PostgREST needs no second overload. The two-argument version is dropped rather than left beside it: PostgREST resolves by argument name and two overloads would be ambiguous.",
+      "scopedIn": "0050+0054"
     },
     "bos_current_tenant()": {
       "group": "B",
@@ -150,6 +150,14 @@
       "setReturning": false,
       "scopedIn": "0047",
       "note": "Added in 0047. Invites an address to the CALLER business only - the tenant comes from bos_request_tenant, never from an argument. Re-inviting issues a new token, so a link that leaked stops working."
+    },
+    "bos_invite_to_tenant_by_id(p_tenant uuid, p_email text, p_role text, p_sections text[])": {
+      "group": "C",
+      "scope": "platform",
+      "returns": "uuid",
+      "setReturning": false,
+      "note": "Invite an address into a NAMED business without entering it. The platform half of bos_invite_to_tenant, which only invites into the request tenant -- advice a platform owner cannot follow for a business they have no reason to be standing in, and setting one up for a client is exactly when the administrator has no account yet. Super admin only, logged in the target business, and re-inviting issues a fresh token so a leaked link stops working.",
+      "scopedIn": "0054"
     },
     "bos_is_platform_owner()": {
       "group": "E",
@@ -418,6 +426,14 @@
       "scopedIn": "0035",
       "bornTenantAware": true
     },
+    "bos_tenant_invitations()": {
+      "group": "A",
+      "scope": "platform",
+      "returns": "table",
+      "setReturning": true,
+      "note": "Pending invitations across every business the caller may manage: all of them for a super admin, otherwise only businesses they administer. Returns the token, because an invitation nobody can send is not an invitation.",
+      "scopedIn": "0054"
+    },
     "bos_tenant_products()": {
       "group": "A",
       "scope": "tenant",
@@ -450,6 +466,14 @@
       "setReturning": false,
       "note": "Remove somebody from a named business from the platform console. Same authority and logging as bos_assign_tenant_admin, and the same refusal as bos_remove_member: never the last admin, because only an admin of a business may appoint one.",
       "scopedIn": "0053"
+    },
+    "bos_update_tenant_profile(p_tenant uuid, p_profile jsonb)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "void",
+      "setReturning": false,
+      "note": "Edit a business details. Super admin, or an admin of that business. Only keys PRESENT in the payload are written, so a form sending three fields does not blank the other seven -- absent and null mean different things, which is why the payload is jsonb rather than ten arguments. Carries no tenant_id predicate because on public.tenants the row id IS the tenant, same as bos_rename_tenant.",
+      "scopedIn": "0054"
     },
     "bos_user_directory()": {
       "group": "A",

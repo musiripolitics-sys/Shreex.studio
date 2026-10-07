@@ -149,3 +149,22 @@ export const loadPlatformStats = cache(async (): Promise<PlatformStats> => {
   const d = data as Record<string, unknown>;
   return Object.fromEntries(Object.entries(d).map(([k, v]) => [k, Number(v)])) as PlatformStats;
 });
+
+/** A pending invitation into a business, from bos_tenant_invitations(). */
+export type TenantInvitation = {
+  tenant_id: string;
+  id: string;
+  email: string;
+  role: string;
+  token: string;
+  created_at: string;
+  expires_at: string;
+  is_expired: boolean;
+};
+
+export const loadTenantInvitations = cache(async (): Promise<TenantInvitation[]> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("bos_tenant_invitations");
+  if (error || !Array.isArray(data)) return [];
+  return data as TenantInvitation[];
+});
