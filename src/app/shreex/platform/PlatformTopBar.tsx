@@ -24,6 +24,11 @@ export function PlatformTopBar({
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
 
+  // Light, like the rest of the app. The black slab read as a different
+  // product sitting on top of this one, and the brand mark plus the Super
+  // admin pill already say this surface is above a business. A dark bar is
+  // a strong signal spent on something the two words next to it say better.
+  //
   // No backdrop-blur on the header, and that is load-bearing rather than
   // taste. An element with a backdrop-filter becomes a containing block for
   // position:fixed descendants AND creates its own stacking context. With it
@@ -33,20 +38,20 @@ export function PlatformTopBar({
   // viewport. The background was bg-fg/95 anyway, so the blur bought a sliver
   // of translucency at the cost of the menu working.
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-fg text-white">
-      <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 px-4 md:px-6">
+    <header className="sticky top-0 z-40 border-b border-line bg-surface">
+      <div className="mx-auto flex h-12 max-w-5xl items-center justify-between gap-3 px-4 md:px-6">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-white/15 text-[11px] font-bold">
+          <span className="grid h-6 w-6 shrink-0 place-items-center rounded bg-brand text-[10px] font-bold text-white">
             P
           </span>
-          <span className="truncate font-display text-base font-bold">Platform</span>
-          <span className="hidden truncate rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] sm:inline">
+          <span className="truncate font-display text-[13px] font-semibold text-fg">Platform</span>
+          <span className="hidden truncate rounded bg-brand/10 px-1.5 py-px text-[10px] font-semibold uppercase tracking-[0.08em] text-brand-soft sm:inline">
             Super admin
           </span>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
-          <span className="hidden max-w-[14rem] truncate text-xs text-white/70 md:inline">{email}</span>
+          <span className="hidden max-w-[14rem] truncate text-[12px] text-faint md:inline">{email}</span>
 
           <div className="relative">
             <button
@@ -55,7 +60,7 @@ export function PlatformTopBar({
               disabled={pending}
               aria-haspopup="menu"
               aria-expanded={open}
-              className="flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1.5 text-sm font-medium hover:bg-white/25 disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded border border-line px-2.5 py-1 text-[12px] font-medium text-fg hover:bg-surface-2 disabled:opacity-50"
             >
               Enter a business
               <svg viewBox="0 0 24 24" aria-hidden className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -103,7 +108,7 @@ export function PlatformTopBar({
 
           <Link
             href="/"
-            className="rounded-lg px-2.5 py-1.5 text-xs text-white/70 hover:bg-white/10 hover:text-white"
+            className="rounded px-2 py-1 text-[12px] text-faint hover:bg-surface-2 hover:text-fg"
           >
             Site
           </Link>
