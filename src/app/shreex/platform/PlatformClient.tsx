@@ -40,6 +40,7 @@ export function PlatformClient({
   stats,
   consoleMigrated,
   me,
+  products = [],
 }: {
   orgs: Organisation[];
   platformAdmins: PlatformAdmin[];
@@ -47,11 +48,15 @@ export function PlatformClient({
   stats: PlatformStats;
   consoleMigrated: boolean;
   me: string;
+  /** The catalogue, so a new business can be given only what it needs. */
+  products?: { key: string; name: string }[];
 }) {
   const [saving, start] = useTransition();
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
+  const [picked, setPicked] = useState<string[]>(products.map((p) => p.key));
+  const [created, setCreated] = useState<{ name: string; admin: string | null; token: string | null } | null>(null);
   const [openOrg, setOpenOrg] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [draftName, setDraftName] = useState("");
@@ -118,10 +123,18 @@ export function PlatformClient({
               start(async () => {
                 const res = await createOrganisation(fd);
                 if ("error" in res && res.error) return toast(res.error, "error");
-                toast(`${fd.get("name")} created. Appoint its administrator next.`, "success");
+                const r = res as { admin?: string | null; token?: string | null };
+                setCreated({ name: String(fd.get("name")), admin: r.admin ?? null, token: r.token ?? null });
+                toast(
+                  r.admin === "invited" ? "Created. Send the administrator their link."
+                  : r.admin === "appointed" ? "Created, and its administrator appointed."
+                  : "Created. You hold it until you appoint somebody.",
+                  "success",
+                );
                 setAdding(false);
                 setName("");
                 setSlug("");
+                setPicked(products.map((p) => p.key));
               })
             }
           >
@@ -198,10 +211,76 @@ export function PlatformClient({
               <input name="notes" placeholder="anything worth knowing about this business" className={field} />
             </label>
 
+            {/*
+              Which products this business needs.
+              Every new business used to get all nine. The catalogue is what the
+              platform sells, not what a business bought, and a nine-item
+              sidebar for somebody who uses two is exactly the clutter the
+              dense rebuild is against. The hidden field distinguishes "the
+              form asked and you chose none" from "the form never asked".
+            */}
+            {products.length > 0 && (
+              <div className="mt-3">
+                <input type="hidden" name="products_asked" value="1" />
+                <span className={label}>
+                  Products ({picked.length === 0 ? "none" : `${picked.length} of ${products.length}`})
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {products.map((pr) => {
+                    const on = picked.includes(pr.key);
+                    return (
+                      <label
+                        key={pr.key}
+                        className={`cursor-pointer rounded border px-2.5 py-1 text-[12px] font-medium transition-colors ${
+                          on ? "border-brand bg-brand/10 text-brand-soft" : "border-line text-muted hover:border-brand/40"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          name="products"
+                          value={pr.key}
+                          checked={on}
+                          onChange={() =>
+                            setPicked((d) => (d.includes(pr.key) ? d.filter((x) => x !== pr.key) : [...d, pr.key]))
+                          }
+                          className="sr-only"
+                        />
+                        {pr.name}
+                      </label>
+                    );
+                  })}
+                </div>
+                <div className="mt-1.5 flex gap-2 text-[11px] text-faint">
+                  <button type="button" onClick={() => setPicked(products.map((x) => x.key))} className="hover:text-brand">
+                    All
+                  </button>
+                  <button type="button" onClick={() => setPicked([])} className="hover:text-brand">
+                    None
+                  </button>
+                  <span>· can be changed later from inside the business</span>
+                </div>
+              </div>
+            )}
+
+            {/*
+              Who runs it. Without this the creator becomes the administrator,
+              which is how the platform owner ended up administering
+              Techxfluence -- a tenant like any other, which should have its
+              own. Naming somebody here is what stops that.
+            */}
+            <label className="mt-3 block">
+              <span className={label}>Administrator email</span>
+              <input name="admin_email" type="email" placeholder="who will run this business" className={field} />
+              <span className="mt-1 block text-[11px] text-faint">
+                They are appointed if they already have an account, and invited if they do not — either
+                way you get a link. Leave it blank and you hold the business until you appoint somebody.
+              </span>
+            </label>
+
             <p className="mt-3 rounded border border-line bg-surface-2/50 px-3 py-2 text-[11px] text-muted">
-              It starts empty — no people, no events, no money — with the full product catalogue,
-              and sees nothing belonging to any other business. You administer it until you appoint
-              or invite somebody, which is the next thing to do.
+              It starts empty — no people, no events, no money — and sees nothing belonging to any
+              other business. Only the name is required; everything else can be filled in later from
+              this page.
             </p>
             <div className="mt-3 flex items-center gap-2">
               <button type="submit" disabled={saving || name.trim().length < 2}
@@ -213,6 +292,42 @@ export function PlatformClient({
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {created && (
+        <div className="mb-3 rounded border border-emerald-200 bg-emerald-50 px-3.5 py-3">
+          <p className="text-[12px] font-semibold text-emerald-900">{created.name} created.</p>
+          {created.admin === "invited" && created.token ? (
+            <>
+              <p className="mt-1 text-[12px] text-emerald-900">
+                Its administrator has no account yet, so they have been invited. Send them this link —
+                nothing was emailed from here.
+              </p>
+              <p className="mt-1.5 break-all rounded border border-emerald-200 bg-white px-2 py-1 font-mono text-[11px] text-fg">
+                {typeof window === "undefined" ? `/invite/${created.token}` : `${window.location.origin}/invite/${created.token}`}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard?.writeText(`${window.location.origin}/invite/${created.token}`);
+                  toast("Link copied", "success");
+                }}
+                className="mt-1.5 rounded-full border border-emerald-300 px-2.5 py-0.5 text-[11px] font-medium text-emerald-800"
+              >
+                Copy link
+              </button>
+            </>
+          ) : created.admin === "appointed" ? (
+            <p className="mt-1 text-[12px] text-emerald-900">Its administrator has been appointed.</p>
+          ) : (
+            <p className="mt-1 text-[12px] text-emerald-900">
+              Nobody was named, so you hold it. Expand it below and appoint or invite its administrator.
+            </p>
+          )}
+          <button type="button" onClick={() => setCreated(null)} className="mt-1.5 block text-[11px] text-emerald-800 hover:underline">
+            Dismiss
+          </button>
         </div>
       )}
 

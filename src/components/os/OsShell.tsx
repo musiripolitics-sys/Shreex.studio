@@ -214,7 +214,13 @@ export function OsShell({
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* ── Top bar ── */}
-        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-line bg-surface/90 px-4 backdrop-blur md:px-6">
+        {/* No backdrop-blur: an element with a backdrop-filter becomes a containing
+            block for position:fixed descendants and creates its own stacking
+            context, which trapped BOTH dropdowns in this bar — the business
+            switcher and the notification bell — underneath it. Same bug as the
+            platform header. Opaque background instead of 90%, which is what the
+            blur was there to soften. */}
+        <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-line bg-surface px-4 md:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <button
               onClick={() => setDrawer(true)}

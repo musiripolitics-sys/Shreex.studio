@@ -2,6 +2,7 @@ import { getCurrentUser } from "@/lib/auth";
 import {
   loadMyOrganisations, loadPlatformAdmins, loadTenantAdmins, loadPlatformStats,
 } from "@/lib/os-tenants";
+import { loadProducts } from "@/lib/os-products";
 import { PlatformClient } from "./PlatformClient";
 
 export const metadata = { title: "Platform · Shreex", robots: { index: false } };
@@ -18,11 +19,14 @@ export const metadata = { title: "Platform · Shreex", robots: { index: false } 
 export default async function PlatformPage() {
   const user = await getCurrentUser();
 
-  const [orgs, platformAdmins, tenantAdmins, stats] = await Promise.all([
+  const [orgs, platformAdmins, tenantAdmins, stats, catalogue] = await Promise.all([
     loadMyOrganisations(),
     loadPlatformAdmins(),
     loadTenantAdmins(),
     loadPlatformStats(),
+    // So a new business can be given only the products it needs, named the way
+    // the catalogue names them rather than from a second hardcoded list.
+    loadProducts(),
   ]);
 
   // 0053 absent means no stats and no per-business admin list. The page still
@@ -38,6 +42,7 @@ export default async function PlatformPage() {
       stats={stats}
       consoleMigrated={consoleMigrated}
       me={user?.id ?? ""}
+      products={catalogue.products.filter((p) => p.is_enabled).map((p) => ({ key: p.key, name: p.name }))}
     />
   );
 }

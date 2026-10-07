@@ -83,7 +83,8 @@ console.log("\nCreating one wires up all three things or none:");
 await as(OWN);
 const made = await tryOne(`select public.bos_create_tenant('Acme Widgets') v`);
 ok(!made.e, `the owner creates a business (${made.e ?? "ok"})`);
-const t2 = made.v?.v;
+// jsonb since 0055: the business, how its admin was decided, and a token.
+const t2 = made.v?.v?.tenant_id;
 await owner();
 const row = await one(`select slug,name,status,is_default from public.tenants where id='${t2}'`);
 ok(row?.slug === "acme-widgets", `slug derived from the name (${row?.slug})`);

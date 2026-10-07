@@ -33,7 +33,7 @@ let r = await tryOne(`select public.bos_create_tenant('Jilo','jilo', '{
   "country":"India","industry":"Food","employee_count":"42","started_on":"2024-03-01",
   "phone":" +91 90000 00000 ","notes":"  "}'::jsonb) v`);
 ok(!r.e, `created with a profile (${r.e ?? "ok"})`);
-const jilo = r.v?.v;
+const jilo = r.v?.v?.tenant_id;
 await owner();
 const t = await one(`select * from public.tenants where id='${jilo}'`);
 ok(t.website === "https://jilo.example" && t.city === "Chennai" && t.industry === "Food", "the details stuck");

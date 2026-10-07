@@ -1076,11 +1076,19 @@ export async function createOrganisation(formData: FormData) {
     if (v) profile[k] = v;
   }
 
+  // Which products the business needs. Absent means the form did not ask, so
+  // null (every product); present-but-empty is a real choice of none.
+  const products = formData.getAll("products").map(String).filter(Boolean);
+  const chose = formData.get("products_asked") !== null;
+  const adminEmail = String(formData.get("admin_email") ?? "").trim();
+
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("bos_create_tenant", {
     p_name: name,
     p_slug: slug || null,
     p_profile: profile,
+    p_products: chose ? products : null,
+    p_admin_email: adminEmail || null,
   });
 
   if (error) {
@@ -1093,13 +1101,18 @@ export async function createOrganisation(formData: FormData) {
     }
     if (m.includes("SLUG_TAKEN")) return { error: `The address "${m.split("SLUG_TAKEN:")[1]?.trim() ?? slug}" is already taken.` };
     if (m.includes("BAD_SLUG")) return { error: "That name has no letters or numbers to build an address from." };
+    if (m.includes("UNKNOWN_PRODUCT")) return { error: `No such product: ${m.split("UNKNOWN_PRODUCT:")[1]?.trim()}` };
+    if (m.includes("BAD_EMAIL")) return { error: "The administrator address does not look like an email." };
     if (m.includes("BAD_NAME")) return { error: "Give the business a name of at least two characters." };
     return { error: m };
   }
 
-  await logAudit(supabase, user.id, "create", "tenants", String(data), null, { name, slug: slug || null });
+  // bos_create_tenant returns jsonb since 0055: the business, how its admin was
+  // decided, and an invitation token when one was issued.
+  const res = (data ?? {}) as { tenant_id?: string; admin?: string; token?: string | null };
+  revalidatePath("/shreex/platform");
   revalidatePath(OS, "layout");
-  return { success: true, id: data as string };
+  return { success: true, id: res.tenant_id ?? "", admin: res.admin ?? null, token: res.token ?? null };
 }
 
 /** Rename a business you administer. The slug does not follow — it is an address. */

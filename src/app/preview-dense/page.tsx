@@ -53,6 +53,13 @@ export default function Preview() {
                    tenants_without_admin: 2, platform_admins: 1, products: 9 }}
           consoleMigrated
           me="u1"
+          products={[
+            { key: "plan", name: "Plan" }, { key: "events", name: "Events" },
+            { key: "money", name: "Money" }, { key: "grow", name: "Grow" },
+            { key: "marketing", name: "Marketing" }, { key: "team", name: "Team" },
+            { key: "product", name: "Product" }, { key: "govern", name: "Govern" },
+            { key: "insights", name: "Insights" },
+          ]}
         />
       </div>
     </main>

@@ -70,13 +70,13 @@
       "note": "The visibility predicate behind the Plan section. Needs a tenant clause. SCOPED in 0040: predicates on all six branches, and the is_admin short circuit above them is scoped too - which is why B and E had to be done together. CORRECTED in 0046: 0040 scoped every exists() branch and left is_admin() standing alone at the front, so the first branch short-circuited and ANY admin passed for ANY row. An outer tenant gate now requires the row to be in the caller business before any branch is consulted. Found by the Stage 6 isolation test on its first run.",
       "scopedIn": "0046"
     },
-    "bos_create_tenant(p_name text, p_slug text, p_profile jsonb)": {
+    "bos_create_tenant(p_name text, p_slug text, p_profile jsonb, p_products text[], p_admin_email text)": {
       "group": "C",
       "scope": "platform",
-      "returns": "uuid",
+      "returns": "jsonb",
       "setReturning": false,
-      "note": "Creates a tenant, its first admin membership and its product list. The only way to insert a tenants row: 0050 removed the write policy on that table, so this function is the door and bos_platform_owner_check is the lock. Scope is deliberately platform rather than row -- a new tenant has no tenant to be in. REPLACED in 0054 by a three-argument form taking the business profile as jsonb, so the next field needs no migration and PostgREST needs no second overload. The two-argument version is dropped rather than left beside it: PostgREST resolves by argument name and two overloads would be ambiguous.",
-      "scopedIn": "0050+0054"
+      "note": "Create a business with the products it needs and the administrator who runs it. p_products null means every enabled product and an empty array means none -- different instructions, which is why the form sends a hidden flag to tell them apart. The creator becomes admin only when none is named: that default is how the platform owner ended up administering Techxfluence, and naming one is what stops it, while a business with no admin at all cannot appoint one itself. Returns jsonb since 0055 because \"created, and here is the invitation link\" does not fit in a uuid. Each signature change dropped the previous one rather than overloading, since PostgREST resolves by argument name and two overloads would be ambiguous.",
+      "scopedIn": "0050+0054+0055"
     },
     "bos_current_tenant()": {
       "group": "B",
