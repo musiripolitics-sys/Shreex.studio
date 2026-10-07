@@ -3,6 +3,7 @@
 import { createContext, useContext, useMemo, useState, useTransition } from "react";
 import { toast } from "@/components/Toast";
 import { Card, EmptyState } from "@/components/os/ui";
+import { shortDate } from "@/lib/bos";
 import {
   createEmployee, offboardEmployee, setModuleAccess, setProductEnabled,
   setTenantProduct, setMemberRole, removeMember, inviteToTenant, revokeInvitation,
@@ -852,7 +853,7 @@ function Invitations({
                             ? "no sections"
                             : `${inv.sections.length} section${inv.sections.length === 1 ? "" : "s"}`}
                           {" · expires "}
-                          {new Date(inv.expires_at).toLocaleDateString()}
+                          {shortDate(inv.expires_at)}
                         </p>
                       </div>
                       <button

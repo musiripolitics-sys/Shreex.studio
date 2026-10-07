@@ -5,6 +5,8 @@ import { toast } from "@/components/Toast";
 import type {
   Organisation, PlatformAdmin, TenantAdmin, PlatformStats,
 } from "@/lib/os-tenants";
+import { PageHead, StatStrip, Stat as DenseStat } from "@/components/os/dense";
+import { shortDate } from "@/lib/bos";
 import {
   createOrganisation, renameOrganisation, setOrganisationStatus, switchTenant,
   grantPlatformAdmin, revokePlatformAdmin, assignTenantAdmin, unassignTenantMember,
@@ -21,11 +23,14 @@ const STATUS_PILL: Record<string, string> = {
   archived: "bg-surface-2 text-faint",
 };
 
-const card = "rounded-2xl border border-line bg-surface shadow-soft";
+// Dense surfaces: 8px radius, hairline border, no shadow. A shadow on every
+// panel is depth spent on nothing, and it is most of what made this page feel
+// heavy next to the rebuilt dashboard.
+const card = "rounded-lg border border-line bg-surface";
 const field =
-  "w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-fg outline-none focus:border-brand";
+  "w-full rounded border border-line bg-surface px-2 py-1 text-[13px] text-fg outline-none focus:border-brand";
 const label =
-  "mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-faint";
+  "mb-1 block text-[11px] font-medium uppercase tracking-[0.08em] text-faint";
 
 export function PlatformClient({
   orgs,
@@ -62,13 +67,10 @@ export function PlatformClient({
 
   return (
     <div>
-      <header className="mb-5">
-        <h1 className="font-display text-2xl font-bold tracking-tight text-fg">Organisations</h1>
-        <p className="mt-1 max-w-2xl text-sm text-muted">
-          Every business running on this platform. Each has its own people, products and data,
-          and nothing crosses between them — including for you. To see inside one, enter it.
-        </p>
-      </header>
+      <PageHead
+        title="Organisations"
+        context={`${orgs.length} on this platform · nothing crosses between them, including for you`}
+      />
 
       {!consoleMigrated && (
         <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -80,21 +82,21 @@ export function PlatformClient({
       {/* ── Totals. The one that matters is businesses with no administrator:
              such a business cannot appoint one itself. ── */}
       {consoleMigrated && (
-        <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Stat label="Businesses" value={stats.tenants ?? 0} hint={`${stats.tenants_active ?? 0} active`} />
-          <Stat label="People" value={stats.members ?? 0} hint={`${stats.admins ?? 0} admins`} />
-          <Stat
+        <StatStrip>
+          <DenseStat label="Businesses" value={stats.tenants ?? 0} hint={`${stats.tenants_active ?? 0} active`} />
+          <DenseStat label="People" value={stats.members ?? 0} hint={`${stats.admins ?? 0} admins`} />
+          <DenseStat
             label="Without an admin"
             value={stats.tenants_without_admin ?? 0}
             hint={stats.tenants_without_admin ? "cannot appoint one themselves" : "all covered"}
-            alert={(stats.tenants_without_admin ?? 0) > 0}
+            tone={(stats.tenants_without_admin ?? 0) > 0 ? "warn" : "good"}
           />
-          <Stat label="Platform admins" value={stats.platform_admins ?? 0} hint="can reach every business" />
-        </div>
+          <DenseStat label="Platform admins" value={stats.platform_admins ?? 0} hint="reach every business" />
+        </StatStrip>
       )}
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-[10px] font-semibold uppercase tracking-[0.12em] text-faint">
+        <h2 className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
           {orgs.length} {orgs.length === 1 ? "business" : "businesses"}
         </h2>
         {!adding && (
@@ -109,7 +111,7 @@ export function PlatformClient({
       </div>
 
       {adding && (
-        <div className={`${card} mb-4 p-5`}>
+        <div className={`${card} mb-3 p-3.5`}>
           <form
             action={(fd) =>
               start(async () => {
@@ -164,13 +166,13 @@ export function PlatformClient({
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {orgs.map((o) => {
           const admins = adminsFor(o.id);
           const expanded = openOrg === o.id;
           return (
             <div key={o.id} className={card}>
-              <div className="flex flex-wrap items-start justify-between gap-3 p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3 px-3.5 py-2.5">
                 <div className="min-w-0">
                   {renaming === o.id ? (
                     <div className="flex items-center gap-2">
@@ -188,18 +190,27 @@ export function PlatformClient({
                       </button>
                     </div>
                   ) : (
-                    <h3 className="flex flex-wrap items-center gap-2 font-display text-base font-semibold text-fg">
+                    <h3 className="flex flex-wrap items-center gap-2 font-display text-[13px] font-semibold text-fg">
                       {o.name}
                       {o.is_default && (
-                        <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-faint">
+                        <span className="rounded bg-surface-2 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-faint">
                           Main
                         </span>
                       )}
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${STATUS_PILL[o.status] ?? ""}`}>
-                        {o.status}
-                      </span>
+                      {/*
+                        Only a status worth acting on gets a pill. Showing
+                        ACTIVE on every row broke this page own rule -- colour
+                        means "attend to this", so a badge on the normal case
+                        is colour spent saying nothing, and it drowns the
+                        suspended row that actually needs the eye.
+                      */}
+                      {o.status !== "active" && (
+                        <span className={`rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide ${STATUS_PILL[o.status] ?? ""}`}>
+                          {o.status}
+                        </span>
+                      )}
                       {consoleMigrated && admins.length === 0 && (
-                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                        <span className="rounded bg-amber-50 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-amber-700">
                           No admin
                         </span>
                       )}
@@ -209,7 +220,7 @@ export function PlatformClient({
                     <code className="font-mono text-[11px]">{o.slug}</code>
                     {" · "}{o.member_count} {o.member_count === 1 ? "person" : "people"}
                     {" · "}{o.product_count} products
-                    {" · since "}{new Date(o.created_at).toLocaleDateString()}
+                    {" · since "}{shortDate(o.created_at)}
                   </p>
                 </div>
 
@@ -281,7 +292,7 @@ function Stat({
 }: { label: string; value: number; hint?: string; alert?: boolean }) {
   return (
     <div className={`${card} px-4 py-3`}>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-faint">{l}</p>
+      <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">{l}</p>
       <p className={`mt-0.5 font-display text-2xl font-bold ${alert ? "text-amber-600" : "text-fg"}`}>{value}</p>
       {hint && <p className="mt-0.5 truncate text-[11px] text-faint">{hint}</p>}
     </div>
@@ -313,7 +324,7 @@ function OrgAdmins({
   const [role, setRole] = useState("admin");
 
   return (
-    <div className="border-t border-line bg-surface-2/40 px-5 py-4">
+    <div className="border-t border-line bg-surface-2/40 px-3.5 py-3">
       {!migrated ? (
         <p className="text-xs text-muted">
           Run migration <span className="font-mono">0053_platform_console.sql</span> to see and
@@ -339,7 +350,7 @@ function OrgAdmins({
                       {a.full_name || a.email}
                     </span>
                     <span className="block truncate text-[11px] text-faint">
-                      {a.email} · since {new Date(a.joined_at).toLocaleDateString()}
+                      {a.email} · since {shortDate(a.joined_at)}
                     </span>
                   </span>
                   <button
@@ -428,7 +439,7 @@ function PlatformAdmins({
   return (
     <div className="mt-8">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h2 className="text-[10px] font-semibold uppercase tracking-[0.12em] text-faint">
+        <h2 className="text-[11px] font-medium uppercase tracking-[0.08em] text-faint">
           Platform administrators ({admins.length})
         </h2>
         <button type="button" onClick={() => setOpen((o) => !o)}
@@ -438,7 +449,7 @@ function PlatformAdmins({
       </div>
 
       {open && (
-        <div className={`${card} mb-3 p-5`}>
+        <div className={`${card} mb-2 p-3.5`}>
           <form
             action={(fd) =>
               start(async () => {
@@ -494,17 +505,17 @@ function PlatformAdmins({
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-fg">
                   {a.full_name || a.email || a.user_id}
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                  <span className={`rounded px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide ${
                     a.role === "super_admin" ? "bg-brand/10 text-brand-soft" : "bg-surface-2 text-faint"}`}>
                     {a.role === "super_admin" ? "Super admin" : "Support"}
                   </span>
                   {a.is_expired && (
-                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                    <span className="rounded bg-amber-50 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-amber-700">
                       Expired
                     </span>
                   )}
                   {a.user_id === me && (
-                    <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-faint">
+                    <span className="rounded bg-surface-2 px-1.5 py-px text-[10px] font-semibold uppercase tracking-wide text-faint">
                       You
                     </span>
                   )}
@@ -513,7 +524,7 @@ function PlatformAdmins({
                   {a.email}
                   {a.granted_by_email && ` · appointed by ${a.granted_by_email}`}
                   {a.expires_at
-                    ? ` · ${a.is_expired ? "ended" : "ends"} ${new Date(a.expires_at).toLocaleDateString()}`
+                    ? ` · ${a.is_expired ? "ended" : "ends"} ${shortDate(a.expires_at)}`
                     : " · does not expire"}
                 </p>
               </div>
