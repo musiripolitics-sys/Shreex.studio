@@ -6,24 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": [
         "run",
-        "dev"
-      ],
-      "port": 3000,
-      "autoPort": true
-    },
-    {
-      "name": "chennai-comrades",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": [
-        "--prefix",
-        "/Users/finstein-emp/Documents/Chennai Comrads",
-        "run",
         "dev",
         "--",
         "--port",
-        "3001"
+        "3100"
       ],
-      "port": 3001
+      "port": 3100
     }
   ]
 }
