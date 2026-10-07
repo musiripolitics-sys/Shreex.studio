@@ -80,3 +80,6 @@ Thumbs.db
 
 # esbuild scratch for the email test harness
 .tmp/
+
+# Local Netlify folder
+.netlify
