@@ -70,6 +70,14 @@
       "note": "The visibility predicate behind the Plan section. Needs a tenant clause. SCOPED in 0040: predicates on all six branches, and the is_admin short circuit above them is scoped too - which is why B and E had to be done together. CORRECTED in 0046: 0040 scoped every exists() branch and left is_admin() standing alone at the front, so the first branch short-circuited and ANY admin passed for ANY row. An outer tenant gate now requires the row to be in the caller business before any branch is consulted. Found by the Stage 6 isolation test on its first run.",
       "scopedIn": "0046"
     },
+    "bos_close_sprint(p_sprint uuid)": {
+      "group": "C",
+      "scope": "tenant",
+      "returns": "jsonb",
+      "setReturning": false,
+      "note": "Close the week: unfinished stories move to the next sprint and the count is RECORDED on the sprint that ended. Recorded rather than derived, because once those stories move, deriving it would answer differently every time it was asked. Admin of the request tenant.",
+      "scopedIn": "0056"
+    },
     "bos_create_tenant(p_name text, p_slug text, p_profile jsonb, p_products text[], p_admin_email text)": {
       "group": "C",
       "scope": "platform",
@@ -77,6 +85,14 @@
       "setReturning": false,
       "note": "Create a business with the products it needs and the administrator who runs it. p_products null means every enabled product and an empty array means none -- different instructions, which is why the form sends a hidden flag to tell them apart. The creator becomes admin only when none is named: that default is how the platform owner ended up administering Techxfluence, and naming one is what stops it, while a business with no admin at all cannot appoint one itself. Returns jsonb since 0055 because \"created, and here is the invitation link\" does not fit in a uuid. Each signature change dropped the previous one rather than overloading, since PostgREST resolves by argument name and two overloads would be ambiguous.",
       "scopedIn": "0050+0054+0055"
+    },
+    "bos_current_sprint()": {
+      "group": "B",
+      "scope": "tenant",
+      "returns": "uuid",
+      "setReturning": false,
+      "note": "This week's sprint for the request tenant, or null. Null is a real answer: a business that has not planned the week has not planned it.",
+      "scopedIn": "0056"
     },
     "bos_current_tenant()": {
       "group": "B",
@@ -86,6 +102,14 @@
       "note": "Added in 0034. The tenant the caller is acting in, which every Stage 4 policy compares against. A tenant_id claim in the token wins but is checked against membership first, so a claim naming someone else tenant returns null rather than granting it. Definer for the same reason is_admin is: it is called from inside policies and nesting a policy evaluation in every one of them buys nothing. Corrected in 0041: a claim that is present and refused now returns null rather than falling back to the default tenant. REWRITTEN in 0052 so a super admin may stand in a business they are not a member of. The earliest-membership fallback is unchanged on purpose: narrowing it to their ONLY membership broke everybody in two businesses.",
       "scopedIn": "0034+0052",
       "bornTenantAware": true
+    },
+    "bos_ensure_sprint(p_date date)": {
+      "group": "C",
+      "scope": "tenant",
+      "returns": "uuid",
+      "setReturning": false,
+      "note": "The sprint covering a date for the request tenant, created if absent. Idempotent per business per week, enforced by a unique index on (tenant_id, starts_on) rather than trusted. The week containing today is created active; any other week is planned.",
+      "scopedIn": "0056"
     },
     "bos_event_slug(p_title text, p_id uuid)": {
       "group": "A",
@@ -376,6 +400,22 @@
       "setReturning": false,
       "note": "Resolves a SOP to its live version by id. SCOPED in 0039: scoped to the tenant.",
       "scopedIn": "0039"
+    },
+    "bos_sprint_history(p_limit integer)": {
+      "group": "A",
+      "scope": "tenant",
+      "returns": "table",
+      "setReturning": true,
+      "note": "The last few sprints for the request tenant. A single sprint's velocity is noise; the shape across several is the only part worth acting on.",
+      "scopedIn": "0056"
+    },
+    "bos_sprint_metrics(p_sprint uuid)": {
+      "group": "A",
+      "scope": "tenant",
+      "returns": "jsonb",
+      "setReturning": false,
+      "note": "One sprint in numbers, scoped to the request tenant. Returns carry-over, overrun and unestimated alongside throughput on purpose: an output number with nothing to check it against rewards speed over value, and velocity is the metric teams track because it is easy rather than because it decides anything.",
+      "scopedIn": "0056"
     },
     "bos_switch_tenant(p_tenant uuid)": {
       "group": "C",

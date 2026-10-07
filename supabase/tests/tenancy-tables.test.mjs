@@ -34,6 +34,8 @@ const classified = new Set([
   ...manifest.tenant,
   ...Object.keys(manifest.identity),
   ...Object.keys(manifest.platform),
+  // Tenant tables created after 0035; see tenantAddedLaterNote.
+  ...Object.keys(manifest.tenantAddedLater ?? {}),
   ...Object.keys(manifest.tenancy ?? {}),
 ]);
 
@@ -133,6 +135,32 @@ ok(leftover.length === 0,
 const staleUc = [...known].filter((s) => !live_uc.includes(s));
 ok(staleUc.length === 0,
    staleUc.length === 0 ? "and none is listed that no longer exists" : `STALE CONSTRAINT: ${staleUc.join(", ")}`);
+
+/**
+ * Tenant tables created after 0035 carry the same shape.
+ *
+ * 0035 gave 87 tables tenant_id, not null, defaulting to bos_tenant_default,
+ * and tenancy-stage3 asserts that against the migration itself. A table added
+ * later cannot be checked there — that fixture stops at 0035 — but it needs
+ * exactly the same three things, or its first insert without an explicit
+ * tenant fails, and its rows are invisible the moment isolation applies.
+ */
+console.log("\nTenant tables added after 0035 have the same column shape:");
+const later = Object.keys(manifest.tenantAddedLater ?? {});
+for (const name of later) {
+  const col = (await db.query(
+    `select is_nullable, column_default from information_schema.columns
+      where table_schema='public' and table_name=$1 and column_name='tenant_id'`, [name])).rows[0];
+  ok(!!col, `${name} has tenant_id`);
+  ok(col?.is_nullable === "NO", `${name}.tenant_id is not null`);
+  ok(/bos_tenant_default/.test(col?.column_default ?? ""),
+     `${name}.tenant_id defaults to bos_tenant_default — without it every insert that does not name a tenant fails`);
+  const pol = (await db.query(
+    `select count(*) c from pg_policies where tablename=$1 and permissive='RESTRICTIVE'`, [name])).rows[0];
+  ok(Number(pol.c) > 0, `${name} has a restrictive isolation policy`);
+}
+ok(later.length > 0, `${later.length} table(s) added after 0035: ${later.join(", ")}`);
+
 
 console.log(`\n${state.pass} passed, ${state.fail} failed`);
 process.exit(state.fail ? 1 : 0);

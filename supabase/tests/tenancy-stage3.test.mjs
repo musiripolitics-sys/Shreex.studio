@@ -25,6 +25,9 @@ console.log("\nThe migration list cannot drift from the manifest:");
 const arr = sql.match(/v_tables text\[\] := array\[([\s\S]*?)\];/);
 const inSql = [...(arr?.[1] ?? "").matchAll(/'([a-z_]+)'/g)].map((m) => m[1]).sort();
 const inManifest = [...manifest.tenant].sort();
+
+// Tables created after 0035 are checked in tenancy-tables.test.mjs instead:
+// this fixture stops at 0035, so they do not exist here to inspect.
 ok(inSql.length === inManifest.length && inSql.every((t, i) => t === inManifest[i]),
    inSql.length === inManifest.length && inSql.every((t, i) => t === inManifest[i])
      ? `the ${inSql.length} tables in 0035 are exactly the tenant bucket of tables.json`
