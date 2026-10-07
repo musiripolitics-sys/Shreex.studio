@@ -1,10 +1,12 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { readTasks } from "@/lib/os-tasks";
-import { KpiCard, EmptyState } from "@/components/os/ui";
+import { EmptyState } from "@/components/os/ui";
+import {
+  PageHead, StatStrip, Stat, Queue, Row, ProductList, ProductRow, Split,
+} from "@/components/os/dense";
 import { DashboardFilters } from "@/components/os/DashboardFilters";
-import { AttentionBand, type AttentionItem } from "@/components/os/AttentionBand";
-import { SectionOverview, type SectionCard } from "@/components/os/SectionOverview";
+import type { AttentionItem } from "@/components/os/AttentionBand";
+import type { SectionCard } from "@/components/os/SectionOverview";
 import { type SectionStatus } from "@/lib/bos-sections";
 import { getCurrentUser, isAdmin } from "@/lib/auth";
 import {
@@ -312,58 +314,130 @@ export default async function ExecutiveDashboard({ searchParams }: { searchParam
     },
   ];
 
-  const attentionCount =
-    d.tasks_overdue + d.risks_critical + d.approvals_pending + overdueOf("task_reviews");
 
+
+  // Overdue items carry a day count; blocked and waiting ones do not. That is
+  // the only split the queues need, and it falls out of the data for free.
+  const late = attention.filter((a) => a.daysLate != null && a.daysLate > 0);
+  const stuck = attention.filter((a) => a.daysLate == null || a.daysLate <= 0);
 
   return (
     <>
-      <Header {...filterProps} />
+      <PageHead title="Today" actions={<Header {...filterProps} />} />
 
-      {/* ── 1. What is late, by name. Five at most; the rest are on Alerts. ── */}
-      <AttentionBand items={attention.slice(0, 5)} />
-
-      {/* ── 2. The four numbers worth checking daily ── */}
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard
-          label="Net cash movement"
-          value={inrCompact(netCash)}
-          sub={`${inrCompact(d.revenue_actual)} in · ${inrCompact(d.expenses_total)} out`}
-          href={FIN}
-          tone={netCash >= 0 ? "good" : "bad"}
+      {/*
+        Four numbers, and every one implies an action. This replaced four
+        KpiCards in a 2x4 grid: the same information in about a quarter of the
+        vertical space, which is what lets the work below start above the fold.
+        Net cash and member counts moved to the right rail -- worth knowing,
+        not a thing to do today.
+      */}
+      <StatStrip>
+        <Stat
+          label="Overdue"
+          value={num(d.tasks_overdue)}
+          tone={d.tasks_overdue > 0 ? "bad" : "good"}
+          hint={d.tasks_blocked > 0 ? plural(d.tasks_blocked, "blocked") : "nothing blocked"}
+          href="/shreex/tasks?view=overdue"
         />
-        <KpiCard
+        <Stat
+          label="Awaiting you"
+          value={num(d.approvals_pending)}
+          tone={d.approvals_pending > 0 ? "warn" : "good"}
+          hint={plural(d.approvals_pending, "approval")}
+          href="/shreex/approvals"
+        />
+        <Stat
+          label="At risk"
+          value={num(d.risks_critical)}
+          tone={d.risks_critical > 0 ? "warn" : "good"}
+          hint={`of ${plural(d.risks_open, "open risk")}`}
+          href="/shreex/govern"
+        />
+        <Stat
           label="Runway"
-          value={d.runway_months != null ? `${d.runway_months} mo` : "No burn yet"}
-          sub={d.monthly_burn > 0 ? `${inrCompact(d.monthly_burn)} a month` : undefined}
+          value={d.runway_months != null ? `${d.runway_months} mo` : "—"}
+          tone={d.runway_months != null && d.runway_months < 3 ? "bad" : "plain"}
+          hint={d.monthly_burn > 0 ? `${inrCompact(d.monthly_burn)} a month` : "no burn yet"}
           href={FIN}
-          tone={d.runway_months != null && d.runway_months < 3 ? "bad" : "default"}
         />
-        <KpiCard
-          label="Members"
-          value={num(d.members_total)}
-          sub={`${num(d.members_paid)} paid · ${pct(d.member_conversion)} converted`}
-          href="/shreex/membership"
-        />
-        <KpiCard
-          label="Needs attention"
-          value={num(attentionCount)}
-          sub="Overdue, blocked or waiting on you"
-          href="/shreex/alerts"
-          tone={attentionCount > 0 ? "warn" : "good"}
-        />
-      </div>
+      </StatStrip>
 
-      {/* ── 3. One card per section of the OS, in sidebar order ── */}
-      <div className="mb-2 flex items-baseline justify-between">
-        <h2 className="font-display text-sm font-semibold uppercase tracking-wide text-faint">
-          Sections
-        </h2>
-        <Link href="/shreex/analytics" className="text-xs text-muted hover:text-brand">
-          Full breakdown →
-        </Link>
-      </div>
-      <SectionOverview sections={sectionCards} />
+      <Split
+        main={
+          <>
+            {/*
+              The work, by name, first. It used to sit under the numbers as a
+              band of five. A dashboard is a decision tool, so what needs doing
+              outranks what happened.
+            */}
+            <Queue title="Overdue" count={late.length} tone="bad" href="/shreex/alerts" empty="Nothing is late.">
+              {late.slice(0, 6).map((a) => (
+                <Row
+                  key={a.id}
+                  href={a.href}
+                  primary={a.title}
+                  secondary={a.owner ? `${a.kind} · ${a.owner}` : a.kind}
+                  meta={`${a.daysLate}d`}
+                  tone="bad"
+                />
+              ))}
+            </Queue>
+
+            <Queue title="Blocked or waiting" count={stuck.length} tone="warn" href="/shreex/alerts" empty="Nothing blocked.">
+              {stuck.slice(0, 6).map((a) => (
+                <Row
+                  key={a.id}
+                  href={a.href}
+                  primary={a.title}
+                  secondary={a.owner ? `${a.kind} · ${a.owner}` : a.kind}
+                  tone="warn"
+                />
+              ))}
+            </Queue>
+
+            {/*
+              Nine products as nine rows rather than nine cards. A card per
+              product spends a lot of surface saying "this exists"; the row
+              carries the same number and the same state line in 32px.
+            */}
+            <ProductList>
+              {sectionCards.map((c) => (
+                <ProductRow
+                  key={c.key}
+                  href={c.href}
+                  name={c.label}
+                  detail={c.state}
+                  count={c.tone === "empty" ? "—" : `${c.value} ${c.unit}`}
+                />
+              ))}
+            </ProductList>
+          </>
+        }
+        aside={
+          <>
+            <Queue title="Money" count={1} href={FIN} hrefLabel="Finance">
+              <Row href={FIN} primary="Net movement" meta={inrCompact(netCash)} tone={netCash >= 0 ? "good" : "bad"} />
+              <Row href={FIN} primary="Revenue" meta={inrCompact(d.revenue_actual)} />
+              <Row href={FIN} primary="Spend" meta={inrCompact(d.expenses_total)} />
+              <Row href={FIN} primary="Pipeline" meta={inrCompact(d.weighted_pipeline)} />
+            </Queue>
+
+            <Queue title="People" count={1} href="/shreex/people" hrefLabel="Team">
+              <Row href="/shreex/membership" primary="Members" meta={num(d.members_total)} />
+              <Row href="/shreex/membership" primary="Paid" secondary={pct(d.member_conversion)} meta={num(d.members_paid)} />
+              <Row href="/shreex/people" primary="Employees" meta={num(d.employees)} />
+              <Row href="/shreex/hiring" primary="Open roles" meta={num(d.open_positions)} />
+            </Queue>
+
+            <Queue title="Events" count={1} href="/shreex/events" hrefLabel="Events">
+              <Row href="/shreex/events" primary="Upcoming" meta={num(d.events_upcoming)} />
+              <Row href="/shreex/events" primary="Completed" meta={num(d.events_completed)} />
+              <Row href="/shreex/events" primary="Registrations" meta={num(d.events_registrations)} />
+            </Queue>
+          </>
+        }
+      />
     </>
   );
 }
