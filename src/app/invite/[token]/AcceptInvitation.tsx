@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "@/components/Toast";
-import { acceptInvitation } from "@/app/admin/os/actions";
+import { acceptInvitation } from "@/app/shreex/actions";
 
 /**
  * The accept button.
@@ -35,7 +35,7 @@ export function AcceptInvitation({ token, business }: { token: string; business:
           if ("error" in res && res.error) return toast(res.error, "error");
           setDone(true);
           toast(`You have joined ${business}`, "success");
-          router.push("/admin/os");
+          router.push("/shreex");
         })
       }
       className="mt-5 w-full rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"

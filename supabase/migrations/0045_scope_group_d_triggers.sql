@@ -232,7 +232,7 @@ begin
 
   insert into public.notifications (user_id, type, title, body, link, tenant_id)
   values (v_owner, 'review', 'Your work was reviewed: ' || v_label, v_body,
-          '/admin/os/reviews?tab=tasks', new.tenant_id);
+          '/shreex/reviews?tab=tasks', new.tenant_id);
   return new;
 end $fn$;
 
@@ -260,13 +260,13 @@ begin
   if new.approval_state = 'approved' then
     insert into public.notifications (user_id, type, title, body, link, tenant_id)
     values (new.owner_id, 'task', 'Approved: ' || v_label,
-            'Your work was approved and the task is now complete.', '/admin/os/tasks',
+            'Your work was approved and the task is now complete.', '/shreex/tasks',
             new.tenant_id);
   else
     insert into public.notifications (user_id, type, title, body, link, tenant_id)
     values (new.owner_id, 'task', 'Sent back: ' || v_label,
             coalesce(nullif(trim(coalesce(new.decision_note, '')), ''), 'This needs another look.'),
-            '/admin/os/tasks', new.tenant_id);
+            '/shreex/tasks', new.tenant_id);
   end if;
   return new;
 end $fn$;

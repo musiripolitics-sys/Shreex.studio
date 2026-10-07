@@ -95,7 +95,7 @@ ok(badGuards.length === 0,
 
 console.log("\nThe key list exists in exactly one place in the app:");
 const copies = [];
-for (const f of ["src/app/admin/os/actions.ts", "src/app/admin/os/team/access/AccessClient.tsx"]) {
+for (const f of ["src/app/shreex/actions.ts", "src/app/shreex/team/access/AccessClient.tsx"]) {
   const src = read(f);
   // Nine quoted product keys in one literal is the shape of a fourth copy.
   const hits = [...src.matchAll(/\[(?:[^[\]]*"(?:plan|insights)"[^[\]]*){2,}\]/g)];

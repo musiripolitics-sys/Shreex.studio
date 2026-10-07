@@ -7,14 +7,14 @@ Two steps, in this order. Neither is optional.
 ```
 schema.sql                   -- the public site: events, tickets, members,
                              -- payments, community, credits, chapters
-migrations/0007 … 0030       -- the Business OS, in filename order
+migrations/0007 … 0030       -- the Shreex, in filename order
 ```
 
 `schema.sql` is the **base**, not the whole database. It is applied once to a
 fresh project and then never re-derived, so every table a migration adds —
 tasks, goals, employee access, approvals, complaints, SOPs, the change log —
 is absent from it by design. Running it alone gives you a working public site
-with no Business OS behind it.
+with no Shreex behind it.
 
 Both are idempotent and ordered by dependency, so they can be re-run over an
 existing database.

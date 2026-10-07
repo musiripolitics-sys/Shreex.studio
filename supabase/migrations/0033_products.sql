@@ -3,7 +3,7 @@
 --
 -- Stage 1 of the BOS Product Model plan. Until now a product was a
 -- TypeScript constant: SECTION_KEYS in src/lib/os-access.ts, repeated in
--- src/app/admin/os/actions.ts, and written a third time as a CHECK
+-- src/app/shreex/actions.ts, and written a third time as a CHECK
 -- constraint on employee_module_access.section. Three copies of one list,
 -- and nothing to stop them drifting apart.
 --

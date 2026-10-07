@@ -6,7 +6,7 @@ import { SECTION_KEYS, SECTION_LABELS, type SectionKey } from "@/lib/os-access";
 /**
  * The product catalogue.
  *
- * Stage 1 of the BOS Product Model plan. A product used to be a TypeScript
+ * Stage 1 of the Shreex product model plan. A product used to be a TypeScript
  * constant written out in four places — os-access.ts, the OS actions, the
  * access page, and a CHECK constraint in migration 0016. It is now a row in
  * public.products, and this is the only place the app reads it.

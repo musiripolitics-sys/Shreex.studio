@@ -6,12 +6,12 @@ import { usePathname } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { NotificationBell } from "@/components/NotificationBell";
 import { GlobalSearch } from "./GlobalSearch";
-import { switchTenant } from "@/app/admin/os/actions";
+import { switchTenant } from "@/app/shreex/actions";
 import { toast } from "@/components/Toast";
 import { OS_SECTIONS, type NavSection } from "@/lib/os-modules";
 
 /**
- * The Business OS shell.
+ * The Shreex shell.
  *
  * The sidebar used to list every one of ~35 destinations at once, which meant
  * scrolling to reach anything past Marketing. It now shows the Dashboard and
@@ -78,8 +78,10 @@ export function OsShell({
     closeTimer.current = setTimeout(() => setFlyout(null), 140);
   }, []);
 
+  // The index at /shreex is a router rather than a page, so nothing links to
+  // it any more and it needs no special case: every href here is a real path.
   const isActive = (href: string) =>
-    href === "/admin/os" ? pathname === "/admin/os" : pathname === href || pathname.startsWith(href + "/");
+    pathname === href || pathname.startsWith(href + "/");
 
   // "Today" holds the dashboard plus the two things that moved to the top bar,
   // so the rail shows the nine planning sections and nothing else.
@@ -107,7 +109,7 @@ export function OsShell({
   const railSections = nav.filter((s) => s.key !== null && allowed.has(s.key));
   // Pages reached from the top bar are not in the nav, so they need naming
   // here or the title bar keeps saying "Dashboard".
-  const OFF_NAV: Record<string, string> = { "/admin/os/team/access": "Team & Access" };
+  const OFF_NAV: Record<string, string> = { "/shreex/team/access": "Team & Access" };
   const current =
     nav.flatMap((s) => s.items).find((i) => isActive(i.href))?.label ??
     Object.entries(OFF_NAV).find(([href]) => isActive(href))?.[1] ??
@@ -122,18 +124,18 @@ export function OsShell({
           from, so it must not scroll away with the page under it. h-screen
           plus overflow-y-auto keeps it usable on a very short window too. */}
       <aside className="sticky top-0 z-40 hidden h-screen w-60 shrink-0 flex-col overflow-y-auto border-r border-line bg-surface lg:flex">
-        <Link href="/admin/os" className="flex h-14 items-center gap-2.5 border-b border-line px-4">
+        <Link href="/shreex" className="flex h-14 items-center gap-2.5 border-b border-line px-4">
           <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-brand text-[11px] font-bold text-white">
             OS
           </span>
-          <span className="font-display text-sm font-bold text-fg">Business OS</span>
+          <span className="font-display text-sm font-bold text-fg">Shreex</span>
         </Link>
 
         <Link
-          href="/admin/os"
-          aria-current={pathname === "/admin/os" ? "page" : undefined}
+          href="/shreex"
+          aria-current={pathname === "/shreex" ? "page" : undefined}
           className={`mx-2 mt-3 flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm transition-colors ${
-            pathname === "/admin/os"
+            pathname === "/shreex"
               ? "bg-brand/10 font-semibold text-brand-soft"
               : "text-muted hover:bg-surface-2 hover:text-fg"
           }`}
@@ -173,7 +175,7 @@ export function OsShell({
           />
           <aside className="absolute inset-y-0 left-0 w-72 overflow-y-auto border-r border-line bg-surface">
             <div className="flex h-14 items-center justify-between border-b border-line px-4">
-              <span className="font-display text-sm font-bold text-fg">Business OS</span>
+              <span className="font-display text-sm font-bold text-fg">Shreex</span>
               <button onClick={() => setDrawer(false)} className="text-sm text-faint">
                 Close
               </button>
@@ -231,27 +233,27 @@ export function OsShell({
                 here; without this an employee had no way of hearing about it. */}
             <NotificationBell />
             <TopAction
-              href="/admin/os/approvals"
+              href="/shreex/approvals"
               icon="check"
               label="Approvals"
               count={approvalCount}
-              active={isActive("/admin/os/approvals")}
+              active={isActive("/shreex/approvals")}
             />
             <TopAction
-              href="/admin/os/alerts"
+              href="/shreex/alerts"
               icon="warning"
               label="Alerts"
               count={alertCount}
               tone="warn"
-              active={isActive("/admin/os/alerts")}
+              active={isActive("/shreex/alerts")}
             />
             {isAdmin && (
               <TopAction
-                href="/admin/os/team/access"
+                href="/shreex/team/access"
                 icon="users"
                 label="People and access"
                 count={0}
-                active={isActive("/admin/os/team/access")}
+                active={isActive("/shreex/team/access")}
               />
             )}
             <span className="mx-1 hidden h-5 w-px bg-line sm:block" />
@@ -373,7 +375,7 @@ function TenantSwitcher({
                 bell, because all three are about one business. */}
             {canCreateTenant && (
               <Link
-                href="/admin/platform"
+                href="/shreex/platform"
                 role="menuitem"
                 onClick={() => setOpen(false)}
                 className="block border-t border-line px-3 py-2 text-sm text-muted hover:bg-surface-2 hover:text-fg"

@@ -111,7 +111,7 @@ export function GlobalSearch() {
     <>
       <button
         onClick={() => setOpen(true)}
-        aria-label="Search the Business OS"
+        aria-label="Search the Shreex"
         className="flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-xs text-faint transition-colors hover:border-brand hover:text-fg"
       >
         <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">

@@ -24,7 +24,7 @@ type Preview = {
  * reach either, so a token could be issued and never redeemed — the whole
  * invitation flow was a dead end. This is the redeeming half.
  *
- * Deliberately outside /admin/os. Somebody invited to a business is not a
+ * Deliberately outside /shreex. Somebody invited to a business is not a
  * member of it yet, so the OS layout would bounce them to a dashboard they
  * cannot see before they had a chance to accept.
  */
@@ -62,8 +62,8 @@ export default async function InvitePage({
     return (
       <Shell title={`You have already joined ${name}`}>
         <p className="text-sm text-muted">This invitation has been used.</p>
-        <Link href="/admin/os" className="mt-4 inline-block rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white">
-          Open the Business OS
+        <Link href="/shreex" className="mt-4 inline-block rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white">
+          Open the Shreex
         </Link>
       </Shell>
     );
@@ -142,7 +142,7 @@ export default async function InvitePage({
         {preview?.role && <> as {describeRole(preview.role)}</>}.
         {preview?.sections && preview.sections.length > 0 && (
           <> You will be able to open {preview.sections.length} section
-            {preview.sections.length === 1 ? "" : "s"} of its Business OS.</>
+            {preview.sections.length === 1 ? "" : "s"} of its Shreex.</>
         )}
       </p>
       <p className="mt-2 text-xs text-faint">

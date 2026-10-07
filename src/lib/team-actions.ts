@@ -15,7 +15,7 @@ async function gate(section: "team" | "product") {
   return { user, supabase };
 }
 
-const touch = (...paths: string[]) => paths.forEach((p) => revalidatePath(`/admin/os/${p}`));
+const touch = (...paths: string[]) => paths.forEach((p) => revalidatePath(`/shreex/${p}`));
 const nullableUuid = z.string().uuid().or(z.literal("")).transform((v) => v || null).optional().nullable();
 const nullableDate = z.string().optional().nullable().transform((v) => v || null);
 const STATUSES = ["not_started", "in_progress", "blocked", "completed", "on_hold", "cancelled"] as const;

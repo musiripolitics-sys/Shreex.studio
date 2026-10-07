@@ -56,7 +56,7 @@ begin
       v_a.requester_id, 'approval',
       'Your ' || v_a.request_type || ' request was ' || p_decision,
       v_a.request_title,
-      '/admin/os/approvals'
+      '/shreex/approvals'
     );
   end if;
 end $$;

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 /**
  * The businesses the signed-in person belongs to.
  *
- * Stage 7 of the BOS Product Model plan. Read through bos_my_tenants, which
+ * Stage 7 of the Shreex product model plan. Read through bos_my_tenants, which
  * is deliberately NOT scoped to one tenant: listing them across businesses is
  * what makes switching possible, and it is why tenant_members has no
  * isolation policy of its own.

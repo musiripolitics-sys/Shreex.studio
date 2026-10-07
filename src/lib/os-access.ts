@@ -7,7 +7,7 @@ import { OS_SECTIONS } from "@/lib/os-modules";
  * The product keys this build has pages for. "Today" is not one — everyone
  * with OS access gets the dashboard, alerts and approvals.
  *
- * Since Stage 1 of the BOS Product Model plan the catalogue lives in
+ * Since Stage 1 of the Shreex product model plan the catalogue lives in
  * public.products and is read through @/lib/os-products. This list is the
  * other half of that split: a product exists and is enabled as DATA, but its
  * routes are CODE, and nothing in a table can conjure a React page. So this
@@ -37,7 +37,7 @@ export const SECTION_LABELS: Record<SectionKey, string> = {
 /**
  * Which product owns a given path. Derived from the nav rather than a second
  * hand-written list, so a page added to a group is guarded automatically.
- * Longest href wins, so /admin/os/events beats a shorter prefix.
+ * Longest href wins, so /shreex/events beats a shorter prefix.
  *
  * This used to match a nav group to a grant by lowercasing its label, which
  * meant renaming a group silently ungated every page under it. Groups now
@@ -84,9 +84,9 @@ export async function requireSection(section: SectionKey): Promise<void> {
     // their own check, so only un-migrated non-admins are turned away.
     const { data: admin } = await supabase.rpc("is_admin");
     if (admin === true) return;
-    redirect("/admin/os?denied=" + section);
+    redirect("/shreex/dashboard?denied=" + section);
   }
-  if (data !== true) redirect("/admin/os?denied=" + section);
+  if (data !== true) redirect("/shreex/dashboard?denied=" + section);
 }
 
 /**

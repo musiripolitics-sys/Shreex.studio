@@ -10,7 +10,7 @@ import {
   type BosStatus, type BosPriority, type CrmStage,
 } from "@/lib/bos";
 import type { ModuleConfig, Field as FieldCfg } from "@/lib/os-modules";
-import { saveRecord, deleteRecord } from "@/app/admin/os/records/actions";
+import { saveRecord, deleteRecord } from "@/app/shreex/records/actions";
 
 export type RefOptions = {
   owners: { id: string; full_name: string | null; email: string | null }[];

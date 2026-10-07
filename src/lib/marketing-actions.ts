@@ -22,7 +22,7 @@ async function gate() {
 
 const touch = () => {
   for (const p of ["content", "campaigns", "podcast", "competitors"]) {
-    revalidatePath(`/admin/os/${p}`);
+    revalidatePath(`/shreex/${p}`);
   }
 };
 

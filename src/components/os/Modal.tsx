@@ -3,7 +3,7 @@
 import { type ReactNode } from "react";
 import { useDialogChrome } from "./useDialogChrome";
 
-/** Lightweight accessible modal used by the Business OS record editors. */
+/** Lightweight accessible modal used by the Shreex record editors. */
 export function Modal({
   open,
   onClose,

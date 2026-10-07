@@ -399,7 +399,7 @@ export async function sendHostDecision(opts: {
   }
 }
 
-// ─────────────────────────── Business OS: tasks ───────────────────────────
+// ─────────────────────────── Shreex: tasks ───────────────────────────
 //
 // Work changes hands inside the OS, but people do not live in the OS. The
 // notification bell (0021) reaches whoever happens to open it; these reach
@@ -454,7 +454,7 @@ export async function sendTaskAssigned(opts: {
          ["Priority", opts.priority],
          ["Goal", opts.goal],
        ])}
-       ${button(osUrl(`/admin/os/tasks?task=${opts.taskId}`), "Open the task")}`,
+       ${button(osUrl(`/shreex/tasks?task=${opts.taskId}`), "Open the task")}`,
     ),
   );
 }
@@ -478,12 +478,12 @@ export async function sendTaskDecision(opts: {
         ? `Hi ${opts.name}, <strong>${opts.title}</strong> was approved${
             opts.decidedBy ? ` by ${opts.decidedBy}` : ""
           } and the task is now complete. Nothing more to do.
-           ${button(osUrl(`/admin/os/tasks?task=${opts.taskId}`), "See the task", "#16a34a")}`
+           ${button(osUrl(`/shreex/tasks?task=${opts.taskId}`), "See the task", "#16a34a")}`
         : `Hi ${opts.name}, <strong>${opts.title}</strong> was sent back${
             opts.decidedBy ? ` by ${opts.decidedBy}` : ""
           } and needs another look.
            ${opts.note ? `<p style="margin:14px 0 0;"><strong>Reason:</strong> ${opts.note}</p>` : ""}
-           ${button(osUrl(`/admin/os/tasks?task=${opts.taskId}`), "Pick it back up")}`,
+           ${button(osUrl(`/shreex/tasks?task=${opts.taskId}`), "Pick it back up")}`,
     ),
   );
 }
@@ -504,7 +504,7 @@ export async function sendTaskSubmitted(opts: {
       `Hi ${opts.name}, ${opts.submittedBy ?? "Someone"} has finished
        <strong>${opts.title}</strong> and submitted it for approval. It stays open
        until you approve it.
-       ${button(osUrl(`/admin/os/tasks?task=${opts.taskId}`), "Review it")}`,
+       ${button(osUrl(`/shreex/tasks?task=${opts.taskId}`), "Review it")}`,
     ),
   );
 }
@@ -533,7 +533,7 @@ export async function sendTaskReviewed(opts: {
          ["Quality", opts.quality != null ? `${opts.quality} of 5` : null],
        ])}
        ${opts.learning ? `<p style="margin:16px 0 0;"><strong>Carry forward:</strong> ${opts.learning}</p>` : ""}
-       ${button(osUrl("/admin/os/reviews?tab=tasks"), "Read the review")}`,
+       ${button(osUrl("/shreex/reviews?tab=tasks"), "Read the review")}`,
     ),
   );
 }
@@ -557,10 +557,10 @@ export async function sendEmployeeWelcome(opts: {
   const site = SITE;
   await send(
     opts.to,
-    "Your Techxfluence Business OS account is ready",
+    "Your Techxfluence Shreex account is ready",
     shell(
       "Welcome to the team 👋",
-      `Hi ${opts.name}, your account for the Techxfluence Business OS is ready${
+      `Hi ${opts.name}, your account for the Techxfluence Shreex is ready${
         opts.title ? `, as <strong>${opts.title}</strong>` : ""
       }.
        ${
@@ -572,7 +572,7 @@ export async function sendEmployeeWelcome(opts: {
        <p style="margin:14px 0 0;">Sign in with this address. Whoever set your
        account up has your password — if you do not have it, use
        <em>Forgot password</em> on the sign-in page and set your own.</p>
-       ${button(`${site}/admin/os`, "Open the Business OS")}`,
+       ${button(`${site}/shreex`, "Open the Shreex")}`,
     ),
   );
 }
@@ -671,7 +671,7 @@ export async function sendApprovalDecision(opts: {
        — <strong>${opts.requestTitle}</strong> — was
        ${opts.approved ? "approved" : "declined"}.
        ${opts.comments ? `<p style="margin:14px 0 0;"><strong>Note:</strong> ${opts.comments}</p>` : ""}
-       ${button(`${SITE}/admin/os/approvals`, "See the request")}`,
+       ${button(`${SITE}/shreex/approvals`, "See the request")}`,
     ),
   );
 }

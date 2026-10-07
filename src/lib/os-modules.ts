@@ -1,5 +1,5 @@
 /**
- * Business OS — configuration-driven modules.
+ * Shreex — configuration-driven modules.
  *
  * Each record module (campaigns, CRM, risks, vendors, …) is described here as
  * data: which table it maps to, the table columns to show, and the form fields
@@ -707,7 +707,7 @@ export const MODULES: Record<string, ModuleConfig> = {
 
   audit: {
     key: "audit", table: "audit_log", title: "Audit Log",
-    desc: "Every important Business OS action, most recent first.",
+    desc: "Every important Shreex action, most recent first.",
     icon: "clock", group: "Governance", readOnly: true, refs: ["owner"],
     order: { col: "created_at", asc: false },
     columns: [
@@ -750,13 +750,13 @@ export type NavSection = {
 };
 
 const m = (key: string): NavItem => ({
-  href: `/admin/os/${key}`,
+  href: `/shreex/${key}`,
   label: MODULES[key].title,
   icon: MODULES[key].icon,
 });
 
 /**
- * Grouped navigation for the Business OS.
+ * Grouped navigation for the Shreex.
  *
  * Grouped by the job you're doing, not by the noun the table happens to be —
  * the previous split had "Money" and "Product" holding one item each while
@@ -769,9 +769,9 @@ export const OS_SECTIONS: NavSection[] = [
     label: "Today",
     icon: "home",
     items: [
-      { href: "/admin/os", label: "Dashboard", icon: "home" },
-      { href: "/admin/os/alerts", label: "Alerts", icon: "bell" },
-      { href: "/admin/os/approvals", label: "Approvals", icon: "check" },
+      { href: "/shreex/dashboard", label: "Dashboard", icon: "home" },
+      { href: "/shreex/alerts", label: "Alerts", icon: "bell" },
+      { href: "/shreex/approvals", label: "Approvals", icon: "check" },
     ],
   },
   {
@@ -779,11 +779,11 @@ export const OS_SECTIONS: NavSection[] = [
     label: "Plan",
     icon: "rocket",
     items: [
-      { href: "/admin/os/roadmap", label: "Roadmap", icon: "rocket" },
-      { href: "/admin/os/tasks", label: "Tasks", icon: "check" },
+      { href: "/shreex/roadmap", label: "Roadmap", icon: "rocket" },
+      { href: "/shreex/tasks", label: "Tasks", icon: "check" },
       m("dependencies"),
-      { href: "/admin/os/calendar", label: "Calendar", icon: "calendar" },
-      { href: "/admin/os/reviews", label: "Reviews", icon: "clock" },
+      { href: "/shreex/calendar", label: "Calendar", icon: "calendar" },
+      { href: "/shreex/reviews", label: "Reviews", icon: "clock" },
     ],
   },
   {
@@ -791,8 +791,8 @@ export const OS_SECTIONS: NavSection[] = [
     label: "Events",
     icon: "calendar",
     items: [
-      { href: "/admin/os/events", label: "Events", icon: "calendar" },
-      { href: "/admin/os/hosts", label: "Hosts", icon: "mic" },
+      { href: "/shreex/events", label: "Events", icon: "calendar" },
+      { href: "/shreex/hosts", label: "Hosts", icon: "mic" },
       m("sops"),
     ],
   },
@@ -801,7 +801,7 @@ export const OS_SECTIONS: NavSection[] = [
     label: "Money",
     icon: "trophy",
     items: [
-      { href: "/admin/os/finance", label: "Finance", icon: "trophy" },
+      { href: "/shreex/finance", label: "Finance", icon: "trophy" },
       m("vendors"),
     ],
   },
@@ -810,7 +810,7 @@ export const OS_SECTIONS: NavSection[] = [
     label: "Grow",
     icon: "users",
     items: [
-      { href: "/admin/os/membership", label: "Membership", icon: "medal" },
+      { href: "/shreex/membership", label: "Membership", icon: "medal" },
       m("crm"),
       m("partnerships"),
       m("influencers"),
@@ -841,9 +841,9 @@ export const OS_SECTIONS: NavSection[] = [
     icon: "book",
     items: [
       m("risks"),
-      { href: "/admin/os/complaints", label: "Complaints", icon: "users" },
+      { href: "/shreex/complaints", label: "Complaints", icon: "users" },
       m("legal"),
-      { href: "/admin/os/data-dictionary", label: "Data dictionary", icon: "book" },
+      { href: "/shreex/data-dictionary", label: "Data dictionary", icon: "book" },
       m("assets"),
       m("inventory"),
       m("audit"),
@@ -855,8 +855,8 @@ export const OS_SECTIONS: NavSection[] = [
     label: "Insights",
     icon: "sparkle",
     items: [
-      { href: "/admin/os/analytics", label: "Analytics", icon: "nodes" },
-      { href: "/admin/os/reports", label: "Reports", icon: "book" },
+      { href: "/shreex/analytics", label: "Analytics", icon: "nodes" },
+      { href: "/shreex/reports", label: "Reports", icon: "book" },
     ],
   },
 ];

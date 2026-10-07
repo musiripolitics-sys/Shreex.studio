@@ -40,7 +40,7 @@ select * from (
          t.id                       as id,
          coalesce(t.code || ' ', '') || t.title as title,
          t.status::text             as subtitle,
-         '/admin/os/tasks?task=' || t.id        as href,
+         '/shreex/tasks?task=' || t.id        as href,
          case when lower(t.code) = lower((select raw from q)) then 1
               when t.title ilike (select starts from q) then 2 else 3 end as rank
     from public.tasks t, q
@@ -48,28 +48,28 @@ select * from (
 
   union all
   select 'Goal', g.id, coalesce(g.code || ' ', '') || g.objective,
-         g.status::text, '/admin/os/roadmap?goal=' || g.id,
+         g.status::text, '/shreex/roadmap?goal=' || g.id,
          case when lower(g.code) = lower((select raw from q)) then 1
               when g.objective ilike (select starts from q) then 2 else 3 end
     from public.goals g, q
    where g.objective ilike q.contains or g.code ilike q.contains
 
   union all
-  select 'Event', e.id, e.title, coalesce(e.city, '') , '/admin/os/events/' || e.id,
+  select 'Event', e.id, e.title, coalesce(e.city, '') , '/shreex/events/' || e.id,
          case when e.title ilike (select starts from q) then 2 else 3 end
     from public.events e, q
    where e.title ilike q.contains or e.city ilike q.contains or e.venue ilike q.contains
 
   union all
   select 'Content', c.id, coalesce(c.topic, 'Untitled'), coalesce(c.platform, ''),
-         '/admin/os/content',
+         '/shreex/content',
          case when c.topic ilike (select starts from q) then 2 else 3 end
     from public.content_items c, q
    where c.topic ilike q.contains or c.platform ilike q.contains or c.pillar ilike q.contains
 
   union all
   select 'Campaign', m.id, coalesce(m.code || ' ', '') || m.name,
-         coalesce(m.channel, ''), '/admin/os/campaigns',
+         coalesce(m.channel, ''), '/shreex/campaigns',
          case when lower(m.code) = lower((select raw from q)) then 1
               when m.name ilike (select starts from q) then 2 else 3 end
     from public.campaigns m, q
@@ -77,14 +77,14 @@ select * from (
 
   union all
   select 'Host request', h.id, coalesce(h.title, 'Untitled proposal'),
-         coalesce(h.organizer_email, ''), '/admin/os/hosts',
+         coalesce(h.organizer_email, ''), '/shreex/hosts',
          case when h.title ilike (select starts from q) then 2 else 3 end
     from public.host_submissions h, q
    where h.title ilike q.contains or h.organizer_email ilike q.contains or h.city ilike q.contains
 
   union all
   select 'Complaint', k.id, coalesce(k.ref || ' ', '') || k.subject,
-         k.state::text, '/admin/os/complaints',
+         k.state::text, '/shreex/complaints',
          case when lower(k.ref) = lower((select raw from q)) then 1
               when k.subject ilike (select starts from q) then 2 else 3 end
     from public.complaints k, q
@@ -92,7 +92,7 @@ select * from (
 
   union all
   select 'Risk', r.id, coalesce(r.code || ' ', '') || r.risk,
-         coalesce(r.area, ''), '/admin/os/risks',
+         coalesce(r.area, ''), '/shreex/risks',
          case when lower(r.code) = lower((select raw from q)) then 1
               when r.risk ilike (select starts from q) then 2 else 3 end
     from public.risks r, q
@@ -100,50 +100,50 @@ select * from (
 
   union all
   select 'Procedure', s.id, coalesce(s.code || ' ', '') || s.title,
-         s.state::text, '/admin/os/sops',
+         s.state::text, '/shreex/sops',
          case when s.title ilike (select starts from q) then 2 else 3 end
     from public.sop_documents s, q
    where s.title ilike q.contains or s.code ilike q.contains or s.purpose ilike q.contains
 
   union all
-  select 'Vendor', v.id, v.name, coalesce(v.category, ''), '/admin/os/vendors',
+  select 'Vendor', v.id, v.name, coalesce(v.category, ''), '/shreex/vendors',
          case when v.name ilike (select starts from q) then 2 else 3 end
     from public.vendors v, q
    where v.name ilike q.contains or v.category ilike q.contains or v.service ilike q.contains
 
   union all
-  select 'Competitor', w.id, w.name, coalesce(w.category, ''), '/admin/os/competitors',
+  select 'Competitor', w.id, w.name, coalesce(w.category, ''), '/shreex/competitors',
          case when w.name ilike (select starts from q) then 2 else 3 end
     from public.competitors w, q
    where w.name ilike q.contains or w.category ilike q.contains or w.offer ilike q.contains
 
   union all
-  select 'Episode', p.id, p.title, coalesce(p.guest, ''), '/admin/os/podcast',
+  select 'Episode', p.id, p.title, coalesce(p.guest, ''), '/shreex/podcast',
          case when p.title ilike (select starts from q) then 2 else 3 end
     from public.podcast_episodes p, q
    where p.title ilike q.contains or p.guest ilike q.contains or p.topic ilike q.contains
 
   union all
-  select 'Module', a.id, a.module, coalesce(a.feature, ''), '/admin/os/product',
+  select 'Module', a.id, a.module, coalesce(a.feature, ''), '/shreex/product',
          case when a.module ilike (select starts from q) then 2 else 3 end
     from public.app_modules a, q
    where a.module ilike q.contains or a.feature ilike q.contains
 
   union all
-  select 'Role', n.id, n.role, coalesce(n.department, ''), '/admin/os/hiring',
+  select 'Role', n.id, n.role, coalesce(n.department, ''), '/shreex/hiring',
          case when n.role ilike (select starts from q) then 2 else 3 end
     from public.hiring_plan n, q
    where n.role ilike q.contains or n.department ilike q.contains
 
   union all
-  select 'Legal', l.id, l.requirement, l.status::text, '/admin/os/legal',
+  select 'Legal', l.id, l.requirement, l.status::text, '/shreex/legal',
          case when l.requirement ilike (select starts from q) then 2 else 3 end
     from public.legal_items l, q
    where l.requirement ilike q.contains
 
   union all
   select 'Person', u.id, coalesce(u.full_name, u.email), coalesce(u.primary_role::text, ''),
-         '/admin/os/people',
+         '/shreex/people',
          case when u.full_name ilike (select starts from q) then 2 else 3 end
     from public.users u, q
    where u.primary_role::text in ('admin', 'employee', 'event_host')

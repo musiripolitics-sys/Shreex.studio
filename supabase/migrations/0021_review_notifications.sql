@@ -59,7 +59,7 @@ begin
   end if;
 
   perform public.notify(
-    v_owner, 'review', 'Your work was reviewed: ' || v_label, v_body, '/admin/os/reviews?tab=tasks'
+    v_owner, 'review', 'Your work was reviewed: ' || v_label, v_body, '/shreex/reviews?tab=tasks'
   );
   return new;
 end;
@@ -97,13 +97,13 @@ begin
   if new.approval_state = 'approved' then
     perform public.notify(
       new.owner_id, 'task', 'Approved: ' || v_label,
-      'Your work was approved and the task is now complete.', '/admin/os/tasks'
+      'Your work was approved and the task is now complete.', '/shreex/tasks'
     );
   else
     perform public.notify(
       new.owner_id, 'task', 'Sent back: ' || v_label,
       coalesce(nullif(trim(coalesce(new.decision_note, '')), ''), 'This needs another look.'),
-      '/admin/os/tasks'
+      '/shreex/tasks'
     );
   end if;
   return new;

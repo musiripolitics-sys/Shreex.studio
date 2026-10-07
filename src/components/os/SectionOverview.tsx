@@ -26,7 +26,7 @@ const TONE: Record<SectionCard["tone"], { dot: string; chip: string; ring: strin
 };
 
 /**
- * Nine cards, one per section of the Business OS, in the same order as the
+ * Nine cards, one per section of the Shreex, in the same order as the
  * sidebar. Each carries a single number and a traffic light rather than a wall
  * of statistics — the detail lives one click away on the section's own page.
  */

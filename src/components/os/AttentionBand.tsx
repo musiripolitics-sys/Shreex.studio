@@ -50,7 +50,7 @@ export function AttentionBand({ items }: { items: AttentionItem[] }) {
           </div>
         </div>
         <Link
-          href="/admin/os/alerts"
+          href="/shreex/alerts"
           className="shrink-0 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:border-brand hover:text-brand"
         >
           All alerts

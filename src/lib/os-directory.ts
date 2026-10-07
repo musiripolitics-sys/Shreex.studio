@@ -10,7 +10,7 @@ export type DirectoryEntry = {
 const STAFF = ["admin", "employee", "event_host"];
 
 /**
- * Who the Business OS is allowed to name.
+ * Who the Shreex is allowed to name.
  *
  * A plain select on `users` returns only the caller's own row to an employee —
  * "read own profile" is `auth.uid() = id or is_admin()` — so every colleague on
