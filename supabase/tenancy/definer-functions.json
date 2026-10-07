@@ -43,8 +43,8 @@
       "scope": "caller",
       "returns": "boolean",
       "setReturning": false,
-      "note": "Answers whether the caller has a section. Becomes per-tenant in Stage 7. SCOPED in 0040: the grant lookup is scoped, so being granted Plan at one business no longer opens the door at every business.",
-      "scopedIn": "0040"
+      "note": "Answers whether the caller has a section. Becomes per-tenant in Stage 7. SCOPED in 0040: the grant lookup is scoped, so being granted Plan at one business no longer opens the door at every business. REWRITTEN in 0051 to filter on bos_product_enabled rather than products.is_enabled, so a product switched off for one business is off in that business only.",
+      "scopedIn": "0040+0051"
     },
     "bos_can_see_goal(p_goal uuid)": {
       "group": "B",
@@ -119,6 +119,14 @@
       "note": "Trigger. Blocks completion without an assignee, a comment and approval. ADDRESSED in 0045: both task_comments checks are scoped.",
       "scopedIn": "0045"
     },
+    "bos_invitation_preview(p_token uuid)": {
+      "group": "B",
+      "scope": "token",
+      "returns": "jsonb",
+      "setReturning": false,
+      "note": "What one invitation token is for, so the accept page can name the business and explain a WRONG_ACCOUNT refusal. Scoped by the token rather than by a tenant, which is the right scope here: the invitee is by definition not a member yet, and the 0047 policy (is_admin and request tenant) correctly left them unable to read their own invitation. One token, one row; nothing about any other invitation is reachable. Executable by anon so somebody following the link before signing in is told what it is for.",
+      "scopedIn": "0051"
+    },
     "bos_invite_to_tenant(p_email text, p_role text, p_sections text[])": {
       "group": "C",
       "scope": "caller",
@@ -156,8 +164,8 @@
       "scope": "caller",
       "returns": "text[]",
       "setReturning": false,
-      "note": "The nav's source of truth. Becomes per-tenant. SCOPED in 0040: a tenant predicate on the row lookup.",
-      "scopedIn": "0040"
+      "note": "The nav's source of truth. Becomes per-tenant. SCOPED in 0040: a tenant predicate on the row lookup. REWRITTEN in 0051 to filter on bos_product_enabled rather than products.is_enabled, so a product switched off for one business is off in that business only.",
+      "scopedIn": "0040+0051"
     },
     "bos_my_tenant_summary()": {
       "group": "A",
@@ -207,6 +215,14 @@
       "note": "The same test, raising instead of returning, so a caller learns WHICH of NOT_SIGNED_IN, NO_DEFAULT_TENANT and NOT_PLATFORM_OWNER applies.",
       "scopedIn": "0050"
     },
+    "bos_product_enabled(p_key text)": {
+      "group": "B",
+      "scope": "tenant",
+      "returns": "boolean",
+      "setReturning": false,
+      "note": "Whether a product is on for the request tenant: its own tenant_products row if it has one, else the catalogue, else false. The coalesce order IS the decision -- a per-business row wins, absence defers, an unknown key is refused. bos_can_access and bos_my_sections both delegate here as of 0051, which is what finally made tenant_products mean something: 0050 seeded it and nothing read it.",
+      "scopedIn": "0051"
+    },
     "bos_publish_sop(p_version uuid)": {
       "group": "C",
       "scope": "row",
@@ -222,6 +238,14 @@
       "setReturning": false,
       "note": "Platform infrastructure. Stays global, but the buckets should carry a tenant so one tenant cannot exhaust another's allowance. SCOPED in 0044: the KEY carries the tenant. rate_limits stays a platform table with no tenant_id - the rows are counters, not records - but two businesses sharing an address shared an allowance, so one could be exhausted by the other being spammed.",
       "scopedIn": "0044"
+    },
+    "bos_remove_member(p_user uuid)": {
+      "group": "C",
+      "scope": "tenant",
+      "returns": "void",
+      "setReturning": false,
+      "note": "End a membership in the request tenant, drop that persons section grants IN THIS BUSINESS ONLY, and clear active_tenant_id if they were standing here. Ended rather than deleted, because the membership is what every historical row in the business was written under. Refuses the last admin.",
+      "scopedIn": "0051"
     },
     "bos_rename_tenant(p_tenant uuid, p_name text)": {
       "group": "C",
@@ -257,6 +281,14 @@
       "scopedIn": "0034",
       "bornTenantAware": true
     },
+    "bos_set_member_role(p_user uuid, p_role text)": {
+      "group": "C",
+      "scope": "tenant",
+      "returns": "void",
+      "setReturning": false,
+      "note": "Change what somebody is in the request tenant. Refuses to demote the last admin: since 0051 only an admin of a business may appoint one, so a business with none would need the service role to recover.",
+      "scopedIn": "0051"
+    },
     "bos_set_module_access(p_user uuid, p_sections text[])": {
       "group": "C",
       "scope": "row",
@@ -264,6 +296,14 @@
       "setReturning": false,
       "note": "Grants sections to a user. Must not reach a user outside the caller's tenant. SCOPED in 0042: the delete, the insert and the count are all scoped, and the target must be a member. Without the tenant on the DELETE, revoking a section in one business revoked it in every business the person belonged to.",
       "scopedIn": "0042"
+    },
+    "bos_set_tenant_product(p_key text, p_enabled boolean)": {
+      "group": "C",
+      "scope": "tenant",
+      "returns": "void",
+      "setReturning": false,
+      "note": "Switch a product on or off for the business the caller is acting in. Admin of the request tenant. Writes the row either way, so matching the catalogue is recorded as a choice and stops tracking it.",
+      "scopedIn": "0051"
     },
     "bos_set_tenant_status(p_tenant uuid, p_status text)": {
       "group": "C",
@@ -321,6 +361,14 @@
       "note": "Added in 0035 as the column default on all 87 tenant-owned tables. Returns bos_current_tenant(), or the default tenant when there is no caller - which is the case for the cron job, the payment webhook and employee onboarding, all of which write as the service role. Scope is all rather than caller because the fallback branch answers without reference to who is asking; it reveals only the default tenant id, which is not a secret. Definer because it reads tenants, and a service-role insert has no membership to read it with. Stage 5 should narrow the fallback once more than one tenant exists, since a service-role write then has to be told which tenant it is for.",
       "scopedIn": "0035",
       "bornTenantAware": true
+    },
+    "bos_tenant_products()": {
+      "group": "A",
+      "scope": "tenant",
+      "returns": "table",
+      "setReturning": true,
+      "note": "The catalogue as the request tenant sees it, for the management UI. has_row distinguishes a deliberate choice from a default so the page can say following the catalogue rather than claim a decision nobody made.",
+      "scopedIn": "0051"
     },
     "bos_tenant_role(p_tenant uuid)": {
       "group": "B",
@@ -725,6 +773,17 @@
       "whyItSurvived": "tenants is a tenancy table, so it never received a Stage 4 restrictive isolation policy -- those compare tenant_id, and this table has none. Its id is the tenant.",
       "fix": "0050 drops the write policy entirely and revokes insert, update and delete from authenticated and anon. Every legitimate write now goes through bos_create_tenant, bos_rename_tenant or bos_set_tenant_status, each of which checks membership in the named tenant. The read policy lost the same short-circuit.",
       "sameClassAs": "0046, which removed the bare is_admin() short-circuit from bos_can_see_task, bos_can_see_goal, can_read_community and community_leads."
+    },
+    "tenancy-tables-admin-short-circuit": {
+      "id": "tenancy-tables-admin-short-circuit",
+      "found": "0051",
+      "table": "public.tenant_members, public.tenant_products, public.products",
+      "severity": "cross-tenant takeover",
+      "what": "The same is_admin() short-circuit 0050 removed from public.tenants was on the other two tenancy tables, and a tenant-free variant of it was on the catalogue. is_admin() is about the request tenant and never looks at the row.",
+      "verified": "In the fixture, acting as an admin of a second business: inserting himself into the first business as admin ALLOWED, deleting its real admin ALLOWED, reading its whole roster ALLOWED, switching off all nine of its products ALLOWED, and disabling a product in public.products for every business on the platform ALLOWED.",
+      "whyItSurvived": "Unreachable without a second tenant, and until 0050 there was no way to create one. Which is why the fix ships with 0050 rather than after it.",
+      "fix": "0051 drops is_admin() from all four policies, leaving bos_tenant_role(tenant_id) -- membership in the ROW tenant. The catalogue becomes a platform owner write, since products has no tenant_id and the authority to change a global list cannot be per-tenant.",
+      "sameClassAs": "0046 and 0050."
     }
   },
   "stage6": "The cross-tenant isolation assertions, which Stage 0 wrote down as the control that actually prevents the leak and which could not run until a second tenant was possible. They live in supabase/tests/tenancy-stage6.test.mjs: two businesses with deliberately COLLIDING values, every row-spanning function called as an admin of each with the results asserted disjoint, every aggregate asserted to count one business rather than both, and every id-taking function asked about the other business id. It earned its description on the first run. Four predicates - bos_can_see_task, bos_can_see_goal, can_read_community, community_leads - opened with a bare is_admin() disjunct, so an admin of one business could see any row in any business however carefully 0040 had scoped the other branches. 0046 fixes them with an outer tenant gate. It also found a test that was asserting the bug: a stage5c assertion passed a TASK id to bos_can_see_goal and expected true, which only worked because the short circuit meant the lookup never ran."
