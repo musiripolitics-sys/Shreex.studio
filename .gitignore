@@ -83,3 +83,6 @@ Thumbs.db
 
 # Local Netlify folder
 .netlify
+
+# Build output of the email and filter test harnesses.
+.tmp/
