@@ -82,6 +82,10 @@ create policy "tenant admin writes tenant products" on public.tenant_products
 -- every business is built from it.
 -- ------------------------------------------------------------
 drop policy if exists "admin writes products" on public.products;
+-- And the new name as well, or a second run of this file fails with 42710.
+-- It did: I wrote "safe to run twice" and only dropped the name being
+-- replaced, not the one being created.
+drop policy if exists "platform owner writes products" on public.products;
 create policy "platform owner writes products" on public.products
   for all
   using      (public.bos_is_platform_owner())
