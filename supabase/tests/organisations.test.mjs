@@ -31,6 +31,10 @@ await db.exec(`update public.users set primary_role='admin' where id='${OWN}';`)
 await db.exec(`delete from public.tenant_members where user_id='${OUT}';`);
 await db.exec(`update public.tenant_members set role='employee' where user_id='${EMP}';`);
 await db.exec(`update public.tenant_members set role='admin', status='active' where user_id='${OWN}';`);
+// Since 0052 the platform owner is a row in platform_admins, not an admin of
+// the tenant that happens to be flagged default. owner has to be granted it.
+await db.exec(`insert into public.platform_admins(user_id,role) values ('${OWN}','super_admin')
+               on conflict (user_id) do nothing;`);
 
 console.log("\nSlugs are derived, not trusted:");
 for (const [input, want] of [
@@ -48,11 +52,11 @@ for (const [input, want] of [
 console.log("\nOnly an admin of the default business may create one:");
 await as(OUT);
 let r = await tryOne(`select public.bos_create_tenant('Shadow Corp') v`);
-ok(!!r.e && r.e.includes("NOT_PLATFORM_OWNER"), `an outsider is refused (${r.e ?? "CREATED"})`);
+ok(!!r.e && r.e.includes("NOT_SUPER_ADMIN"), `an outsider is refused (${r.e ?? "CREATED"})`);
 await as(EMP);
 r = await tryOne(`select public.bos_create_tenant('Shadow Corp') v`);
-ok(!!r.e && r.e.includes("NOT_PLATFORM_OWNER"),
-   `an employee of the default business is refused too (${r.e ?? "CREATED"}) — definer means the check is the only guard`);
+ok(!!r.e && r.e.includes("NOT_SUPER_ADMIN"),
+   `an employee is refused too (${r.e ?? "CREATED"}) — definer means the check is the only guard`);
 await owner();
 ok((await one(`select count(*) c from public.tenants`)).c === 1n ||
    Number((await one(`select count(*) c from public.tenants`)).c) === 1,

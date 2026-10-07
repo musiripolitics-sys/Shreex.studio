@@ -168,13 +168,25 @@ const unscoped = await q(`
 // Pinned by name. Each is scoped through a delegate or operates on a table
 // that is global by design; a seventh appearing here is a regression.
 const allowed = [
+  // Compared in the order the catalogue returns, which is plain alphabetical
+  // on the signature -- so this list stays sorted, not grouped by reason.
+  //
+  // 0052. Platform authority is not a fact about any business, so these six
+  // cannot carry a tenant predicate and must not. A super admin is pinned to
+  // ONE business by is_admin and bos_tenant_role, which do carry it.
+  "bos_grant_platform_admin(p_email text, p_role text, p_expires timestamp with time zone)",
   "bos_guard_contact_rate()",     // via bos_rate_limit, whose key carries the tenant
   "bos_guard_newsletter_rate()",  // same
+  "bos_is_platform_owner()",      // 0052, alias for bos_is_super_admin
+  "bos_is_super_admin()",         // 0052, reads platform_admins
+  "bos_platform_admins()",        // 0052
+  "bos_platform_owner_check()",   // 0052, the raising form
   // 0050. The only entry here for a structural reason rather than a
-  // delegation: on public.tenants the row id IS the tenant, so a tenant_id
-  // predicate cannot exist. It checks bos_tenant_role(p_tenant) instead,
-  // which is membership in the NAMED tenant rather than the request one.
+  // delegation or a platform scope: on public.tenants the row id IS the
+  // tenant, so a tenant_id predicate cannot exist. It checks
+  // bos_tenant_role(p_tenant), membership in the NAMED tenant.
   "bos_rename_tenant(p_tenant uuid, p_name text)",
+  "bos_revoke_platform_admin(p_user uuid)",  // 0052
   "handle_new_user()",            // public.users is global
   "is_employee()",                // delegates to bos_is_staff
   "is_paid_member()",             // delegates to is_admin and member_tier
@@ -183,7 +195,7 @@ const allowed = [
 const got = unscoped.map((r) => r.sig);
 ok(JSON.stringify(got) === JSON.stringify(allowed),
    JSON.stringify(got) === JSON.stringify(allowed)
-     ? `exactly seven definer functions carry no tenant reference, and all seven are deliberate: ${allowed.map((a) => a.replace("()", "")).join(", ")}`
+     ? `exactly thirteen definer functions carry no tenant reference, and all thirteen are deliberate: ${allowed.map((a) => a.replace("()", "")).join(", ")}`
      : `CHANGED — now unscoped: ${got.join(", ")}`);
 
 console.log(`\n${state.pass} passed, ${state.fail} failed`);

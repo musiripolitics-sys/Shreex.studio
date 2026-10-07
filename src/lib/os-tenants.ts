@@ -84,3 +84,27 @@ export const isPlatformOwner = cache(async (): Promise<boolean> => {
   if (error) return false;
   return data === true;
 });
+
+/** A platform administrator, from bos_platform_admins(). */
+export type PlatformAdmin = {
+  user_id: string;
+  email: string | null;
+  full_name: string | null;
+  role: "super_admin" | "support";
+  granted_at: string;
+  expires_at: string | null;
+  granted_by_email: string | null;
+  is_expired: boolean;
+};
+
+/**
+ * Who runs the platform. Empty for anybody who does not, because the
+ * authorisation is the WHERE clause inside bos_platform_admins rather than a
+ * check out here — so a page cannot forget it.
+ */
+export const loadPlatformAdmins = cache(async (): Promise<PlatformAdmin[]> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("bos_platform_admins");
+  if (error || !Array.isArray(data)) return [];
+  return data as PlatformAdmin[];
+});

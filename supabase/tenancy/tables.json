@@ -13,6 +13,7 @@
   },
   "platform": {
     "email_failures": "Delivery diagnostics for the platform operator.",
+    "platform_admins": "Who runs the platform, as opposed to who runs a business on it. No tenant_id by design: platform authority is not a fact about any one business, which is the whole reason 0052 moved it out of tenant_members. Added in migration 0052.",
     "products": "The product catalogue, added in migration 0033. The same nine rows for every tenant, which is why it is not tenant-owned. Which products a given tenant has is tenant_products, in the tenancy bucket.",
     "rate_limits": "Abuse control for the whole install, keyed by bucket and key. Not a tenant record."
   },

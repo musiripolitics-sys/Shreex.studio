@@ -75,8 +75,8 @@
       "scope": "caller",
       "returns": "uuid",
       "setReturning": false,
-      "note": "Added in 0034. The tenant the caller is acting in, which every Stage 4 policy compares against. A tenant_id claim in the token wins but is checked against membership first, so a claim naming someone else tenant returns null rather than granting it. Definer for the same reason is_admin is: it is called from inside policies and nesting a policy evaluation in every one of them buys nothing. Corrected in 0041: a claim that is present and refused now returns null rather than falling back to the default tenant.",
-      "scopedIn": "0034",
+      "note": "Added in 0034. The tenant the caller is acting in, which every Stage 4 policy compares against. A tenant_id claim in the token wins but is checked against membership first, so a claim naming someone else tenant returns null rather than granting it. Definer for the same reason is_admin is: it is called from inside policies and nesting a policy evaluation in every one of them buys nothing. Corrected in 0041: a claim that is present and refused now returns null rather than falling back to the default tenant. REWRITTEN in 0052 so a super admin may stand in a business they are not a member of. The earliest-membership fallback is unchanged on purpose: narrowing it to their ONLY membership broke everybody in two businesses.",
+      "scopedIn": "0034+0052",
       "bornTenantAware": true
     },
     "bos_event_slug(p_title text, p_id uuid)": {
@@ -94,6 +94,14 @@
       "setReturning": true,
       "note": "Set-returning, no caller filter of any kind. Returns every governed record that needs attention. Without a tenant predicate it returns every tenant's. SCOPED in 0038: a tenant predicate on each of the four union branches.",
       "scopedIn": "0038"
+    },
+    "bos_grant_platform_admin(p_email text, p_role text, p_expires timestamp with time zone)": {
+      "group": "C",
+      "scope": "platform",
+      "returns": "uuid",
+      "setReturning": false,
+      "note": "Appoint a platform administrator by address. The only thing that resolves an address to a user id across the platform, which is why it is definer and why it is gated on bos_is_super_admin first. A support grant must carry an expiry: temporary internal access that never ends is what expires_at exists to prevent.",
+      "scopedIn": "0052"
     },
     "bos_guard_contact_rate()": {
       "group": "D",
@@ -140,16 +148,24 @@
       "scope": "caller",
       "returns": "boolean",
       "setReturning": false,
-      "note": "Whether the caller may create a business. Deliberately NOT scoped to bos_request_tenant: creating a tenant is an act above all tenants, so it cannot be authorised by a membership in whichever one the request happens to be about. The rule is admin of the tenant marked is_default.",
-      "scopedIn": "0050"
+      "note": "Whether the caller may create a business. Deliberately NOT scoped to bos_request_tenant: creating a tenant is an act above all tenants, so it cannot be authorised by a membership in whichever one the request happens to be about. The rule is admin of the tenant marked is_default. REWRITTEN in 0052 as an alias for bos_is_super_admin. No longer admin of the default tenant, because nothing is default.",
+      "scopedIn": "0050+0052"
     },
     "bos_is_staff()": {
       "group": "E",
       "scope": "caller",
       "returns": "boolean",
       "setReturning": false,
-      "note": "As above. SCOPED in 0040: a tenant predicate on the row lookup. FALLBACK REMOVED in 0047: the membership is the only authority now. Safe because bos_mirror_primary_role keeps tenant_members.role in step with users.primary_role, which is what the fallback existed to tolerate.",
-      "scopedIn": "0047"
+      "note": "As above. SCOPED in 0040: a tenant predicate on the row lookup. FALLBACK REMOVED in 0047: the membership is the only authority now. Safe because bos_mirror_primary_role keeps tenant_members.role in step with users.primary_role, which is what the fallback existed to tolerate. REWRITTEN in 0052 to OR against bos_is_super_admin().",
+      "scopedIn": "0047+0052"
+    },
+    "bos_is_super_admin()": {
+      "group": "E",
+      "scope": "platform",
+      "returns": "boolean",
+      "setReturning": false,
+      "note": "Whether the caller runs the platform. A row in platform_admins, deliberately not a tenant membership and not a column on users: granting platform authority leaves a row naming who granted it, and expires_at makes time-boxed support access expressible. Definer to break policy recursion on platform_admins, the same reason bos_tenant_role is. An expired grant is not a grant. is_admin() and bos_is_staff() OR against this, which is how a super admin reaches every tenant without editing any of the 106 policies that call is_admin.",
+      "scopedIn": "0052"
     },
     "bos_mirror_primary_role()": {
       "group": "D",
@@ -172,16 +188,16 @@
       "scope": "caller",
       "returns": "table",
       "setReturning": true,
-      "note": "Every business the caller belongs to, with member and product counts. Crosses tenants on purpose, like bos_my_tenants, and for the same reason: listing them is what makes switching and management possible. Unlike bos_my_tenants it does not filter on tenant status, because a management page has to show you the business you suspended.",
-      "scopedIn": "0050"
+      "note": "Every business the caller belongs to, with member and product counts. Crosses tenants on purpose, like bos_my_tenants, and for the same reason: listing them is what makes switching and management possible. Unlike bos_my_tenants it does not filter on tenant status, because a management page has to show you the business you suspended. REWRITTEN in 0052 to return every business for a super admin.",
+      "scopedIn": "0050+0052"
     },
     "bos_my_tenants()": {
       "group": "B",
       "scope": "all",
       "returns": "record",
       "setReturning": true,
-      "scopedIn": "0047",
-      "note": "Added in 0047. The businesses the caller belongs to, and which one they are acting in. DELIBERATELY not scoped to one tenant - listing them across tenants is what makes switching possible, which is also why tenant_members has no isolation policy. It answers only about auth.uid()."
+      "scopedIn": "0047+0052",
+      "note": "Added in 0047. The businesses the caller belongs to, and which one they are acting in. DELIBERATELY not scoped to one tenant - listing them across tenants is what makes switching possible, which is also why tenant_members has no isolation policy. It answers only about auth.uid(). REWRITTEN in 0052 to return every active business for a super admin."
     },
     "bos_notify_task_decision()": {
       "group": "D",
@@ -207,13 +223,21 @@
       "note": "Trigger. Opens a review row. ADDRESSED in 0045: the review carries the task tenant.",
       "scopedIn": "0045"
     },
+    "bos_platform_admins()": {
+      "group": "A",
+      "scope": "platform",
+      "returns": "table",
+      "setReturning": true,
+      "note": "Who runs the platform, with the addresses the administration page shows. The WHERE clause IS the authorisation -- it returns nothing at all unless the caller is a super admin, so a page cannot forget the check. Carries no tenant reference because platform authority is not a fact about any business.",
+      "scopedIn": "0052"
+    },
     "bos_platform_owner_check()": {
       "group": "E",
       "scope": "caller",
       "returns": "void",
       "setReturning": false,
-      "note": "The same test, raising instead of returning, so a caller learns WHICH of NOT_SIGNED_IN, NO_DEFAULT_TENANT and NOT_PLATFORM_OWNER applies.",
-      "scopedIn": "0050"
+      "note": "The same test, raising instead of returning, so a caller learns WHICH of NOT_SIGNED_IN, NO_DEFAULT_TENANT and NOT_PLATFORM_OWNER applies. REWRITTEN in 0052: NO_DEFAULT_TENANT replaced by NOT_SUPER_ADMIN.",
+      "scopedIn": "0050+0052"
     },
     "bos_product_enabled(p_key text)": {
       "group": "B",
@@ -252,8 +276,8 @@
       "scope": "row",
       "returns": "void",
       "setReturning": false,
-      "note": "Renames a business the caller administers. Checks bos_tenant_role(p_tenant), i.e. membership in the NAMED tenant rather than the request tenant, so managing a business does not require switching into it first. Carries no literal tenant_id because on this table the id IS the tenant, which is why it is pinned in the stage5f allowlist.",
-      "scopedIn": "0050"
+      "note": "Renames a business the caller administers. Checks bos_tenant_role(p_tenant), i.e. membership in the NAMED tenant rather than the request tenant, so managing a business does not require switching into it first. Carries no literal tenant_id because on this table the id IS the tenant, which is why it is pinned in the stage5f allowlist. REWRITTEN in 0052 to allow a super admin without entering the business, since the tenant RECORD is platform furniture. Written as AND ... IS DISTINCT FROM: NOT (false OR NULL) is NULL and IF treats that as false, and a test caught the fall-through.",
+      "scopedIn": "0050+0052"
     },
     "bos_request_tenant()": {
       "group": "B",
@@ -263,6 +287,14 @@
       "note": "Added in 0037. The tenant every isolation policy compares against: the caller current tenant, else the default tenant, else the only tenant if there is exactly one. Scope is all because the fallbacks answer without reference to who is asking - which is required, since an anonymous visitor on the public site has no membership and a restrictive policy comparing tenant_id against NULL would hide every row from everybody. The consequence is that the public website can only serve the default tenant until a request carries which tenant it is for. Corrected in 0041: a claim that is present and refused now returns null rather than falling back to the default tenant.",
       "scopedIn": "0037",
       "bornTenantAware": true
+    },
+    "bos_revoke_platform_admin(p_user uuid)": {
+      "group": "C",
+      "scope": "platform",
+      "returns": "void",
+      "setReturning": false,
+      "note": "Remove a platform administrator. Refuses the last super admin: nobody else may write platform_admins, and with nothing default there is no tenant to derive a replacement from, so an empty list needs the service role to repair.",
+      "scopedIn": "0052"
     },
     "bos_section_status()": {
       "group": "A",
@@ -310,8 +342,8 @@
       "scope": "row",
       "returns": "void",
       "setReturning": false,
-      "note": "Suspends, archives or reactivates a business the caller administers. Refuses the default tenant, which bos_request_tenant falls back to and therefore may never leave the active set. Clears active_tenant_id for anyone left standing in a tenant that just stopped being active.",
-      "scopedIn": "0050"
+      "note": "Suspends, archives or reactivates a business the caller administers. Refuses the default tenant, which bos_request_tenant falls back to and therefore may never leave the active set. Clears active_tenant_id for anyone left standing in a tenant that just stopped being active. REWRITTEN in 0052, same null-safe guard.",
+      "scopedIn": "0050+0052"
     },
     "bos_sop_current(p_sop uuid)": {
       "group": "A",
@@ -326,8 +358,8 @@
       "scope": "caller",
       "returns": "uuid",
       "setReturning": false,
-      "scopedIn": "0047",
-      "note": "Added in 0047. Writes users.active_tenant_id after refusing any tenant the caller is not an active member of. That refusal is what makes the column safe to trust: the client names a tenant, the database decides."
+      "scopedIn": "0047+0052",
+      "note": "Added in 0047. Writes users.active_tenant_id after refusing any tenant the caller is not an active member of. That refusal is what makes the column safe to trust: the client names a tenant, the database decides. REWRITTEN in 0052: a super admin may enter any active business, written to THAT business audit log. A member entering their own logs nothing."
     },
     "bos_sync_roadmap_tasks()": {
       "group": "C",
@@ -375,8 +407,8 @@
       "scope": "caller",
       "returns": "user_role",
       "setReturning": false,
-      "note": "Added in 0034. The caller role in a tenant. Definer by necessity, not convenience: a policy on tenant_members asking this question by selecting from tenant_members would recurse through its own policy forever, and bypassing RLS inside the helper is what breaks the cycle. Filtered to auth.uid(), so it can answer about nobody else.",
-      "scopedIn": "0034",
+      "note": "Added in 0034. The caller role in a tenant. Definer by necessity, not convenience: a policy on tenant_members asking this question by selecting from tenant_members would recurse through its own policy forever, and bypassing RLS inside the helper is what breaks the cycle. Filtered to auth.uid(), so it can answer about nobody else. REWRITTEN in 0052: a super admin counts as admin of the tenant they are CURRENTLY IN and no other, so reading a business data still requires entering it, which is logged.",
+      "scopedIn": "0034+0052",
       "bornTenantAware": true
     },
     "bos_track_changes()": {
@@ -544,8 +576,8 @@
       "scope": "caller",
       "returns": "boolean",
       "setReturning": false,
-      "note": "The most-called function in the system. Becomes a question about a membership, not a user. SCOPED in 0040: reads tenant_members for the tenant this request is about. Being an admin of one business now grants nothing in another. A legacy fallback to users.primary_role applies ONLY inside the default tenant, so a drifted role cannot lock anybody out of Techxfluence and a platform-wide admin flag cannot leak admin sideways into a business someone merely belongs to. FALLBACK REMOVED in 0047: the membership is the only authority now. Safe because bos_mirror_primary_role keeps tenant_members.role in step with users.primary_role, which is what the fallback existed to tolerate.",
-      "scopedIn": "0047"
+      "note": "The most-called function in the system. Becomes a question about a membership, not a user. SCOPED in 0040: reads tenant_members for the tenant this request is about. Being an admin of one business now grants nothing in another. A legacy fallback to users.primary_role applies ONLY inside the default tenant, so a drifted role cannot lock anybody out of Techxfluence and a platform-wide admin flag cannot leak admin sideways into a business someone merely belongs to. FALLBACK REMOVED in 0047: the membership is the only authority now. Safe because bos_mirror_primary_role keeps tenant_members.role in step with users.primary_role, which is what the fallback existed to tolerate. REWRITTEN in 0052: super admin OR admin of the request tenant. The restrictive isolation policies still hold a super admin to one business at a time.",
+      "scopedIn": "0047+0052"
     },
     "is_community_member(p_community uuid)": {
       "group": "B",
@@ -756,7 +788,7 @@
       "scopedIn": "0039"
     }
   },
-  "stage5": "COMPLETE. All 75 SECURITY DEFINER functions have been through it. Six carry no tenant reference and all six are deliberate, pinned by name in supabase/tests/tenancy-stage5f.test.mjs: bos_guard_contact_rate and bos_guard_newsletter_rate are scoped through bos_rate_limit whose key carries the tenant; is_employee delegates to bos_is_staff and is_paid_member to is_admin and member_tier; sync_user_email and handle_new_user operate on public.users, which is global by design. A seventh appearing there is a regression. Order taken: A (0038, 0039), E and B together (0040), the claim correction the tests found (0041), C in three pieces (0042, 0043, 0044) and D (0045). Not the order the architecture document gave, because that order assumed FORCE ROW LEVEL SECURITY would close the owner hole at Stage 4 - it cannot here, the owning role carries BYPASSRLS - so the bodies were the only place to close it and A was where rows actually crossed. 0050 adds six more definer functions for creating and managing businesses; bos_rename_tenant is the seventh entry in the stage5f allowlist, and the only one there for a structural reason rather than a delegation: on public.tenants the row id IS the tenant, so a tenant_id predicate cannot exist. It checks bos_tenant_role(p_tenant) instead.",
+  "stage5": "COMPLETE. All 75 SECURITY DEFINER functions have been through it. Six carry no tenant reference and all six are deliberate, pinned by name in supabase/tests/tenancy-stage5f.test.mjs: bos_guard_contact_rate and bos_guard_newsletter_rate are scoped through bos_rate_limit whose key carries the tenant; is_employee delegates to bos_is_staff and is_paid_member to is_admin and member_tier; sync_user_email and handle_new_user operate on public.users, which is global by design. A seventh appearing there is a regression. Order taken: A (0038, 0039), E and B together (0040), the claim correction the tests found (0041), C in three pieces (0042, 0043, 0044) and D (0045). Not the order the architecture document gave, because that order assumed FORCE ROW LEVEL SECURITY would close the owner hole at Stage 4 - it cannot here, the owning role carries BYPASSRLS - so the bodies were the only place to close it and A was where rows actually crossed. 0050 adds six more definer functions for creating and managing businesses; bos_rename_tenant is the seventh entry in the stage5f allowlist, and the only one there for a structural reason rather than a delegation: on public.tenants the row id IS the tenant, so a tenant_id predicate cannot exist. It checks bos_tenant_role(p_tenant) instead. 0052 adds six more, all platform-scoped: bos_is_super_admin and its alias and raising form, plus the three that administer platform_admins. None can carry a tenant predicate, because platform authority is not a fact about any business -- a super admin is pinned to ONE business by is_admin and bos_tenant_role, which do carry it. That takes the stage5f allowlist to thirteen.",
   "noLongerDefiner": {
     "bos_dashboard_summary(p_from date, p_to date)": "DROPPED in 0039. It could not be called: both overloads defaulted every argument, so a two-date call matched the four-argument one too and Postgres refused with \"is not unique\". Both call sites in the app pass four named arguments. Scoping it would have been 97 lines to protect dead code.",
     "bos_dashboard_summary(p_from date, p_to date, p_owner uuid, p_workstream uuid)": "Made SECURITY INVOKER in 0039, so it is no longer in this inventory. It raises FORBIDDEN unless the caller is an admin, and an admin can read all 27 tables it touches, so it never needed to bypass RLS. As an invoker the isolation policies scope all 35 subqueries at once. Verified behaviour-preserving: 66 of 66 keys identical between the two versions, and every table it reads has a permissive SELECT policy an admin satisfies."
@@ -784,6 +816,14 @@
       "whyItSurvived": "Unreachable without a second tenant, and until 0050 there was no way to create one. Which is why the fix ships with 0050 rather than after it.",
       "fix": "0051 drops is_admin() from all four policies, leaving bos_tenant_role(tenant_id) -- membership in the ROW tenant. The catalogue becomes a platform owner write, since products has no tenant_id and the authority to change a global list cannot be per-tenant.",
       "sameClassAs": "0046 and 0050."
+    },
+    "null-guard-fall-through-0052": {
+      "found": "0052",
+      "severity": "cross-tenant write",
+      "what": "A guard written as: if not (bos_is_super_admin() or bos_tenant_role(p_tenant) = 'admin') then raise. bos_tenant_role returns NULL for a tenant the caller is not in, so the expression is NOT (false OR NULL) = NULL, and IF treats NULL as false -- the guard does not fire.",
+      "verified": "A Jilo admin renamed TFX Service in the fixture.",
+      "fix": "if not bos_is_super_admin() and bos_tenant_role(p_tenant) is distinct from 'admin' then raise. Introduced and caught inside 0052; it never shipped.",
+      "note": "0050 used IS DISTINCT FROM correctly. Adding the super admin branch as an OR is what reintroduced the NULL."
     }
   },
   "stage6": "The cross-tenant isolation assertions, which Stage 0 wrote down as the control that actually prevents the leak and which could not run until a second tenant was possible. They live in supabase/tests/tenancy-stage6.test.mjs: two businesses with deliberately COLLIDING values, every row-spanning function called as an admin of each with the results asserted disjoint, every aggregate asserted to count one business rather than both, and every id-taking function asked about the other business id. It earned its description on the first run. Four predicates - bos_can_see_task, bos_can_see_goal, can_read_community, community_leads - opened with a bare is_admin() disjunct, so an admin of one business could see any row in any business however carefully 0040 had scoped the other branches. 0046 fixes them with an outer tenant gate. It also found a test that was asserting the bug: a stage5c assertion passed a TASK id to bos_can_see_goal and expected true, which only worked because the short circuit meant the lookup never ran."

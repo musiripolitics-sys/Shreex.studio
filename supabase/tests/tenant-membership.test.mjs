@@ -40,6 +40,10 @@ await db.exec(`insert into public.tenant_members(tenant_id,user_id,role,status) 
   ('${t2}','${BEN}','admin','active'),
   ('${t2}','${CAL}','employee','active'),
   ('${t2}','${DEE}','admin','active');`);
+// Since 0052 the platform owner is a row in platform_admins, not an admin of
+// the tenant that happens to be flagged default. Ada has to be granted it.
+await db.exec(`insert into public.platform_admins(user_id,role) values ('${ADA}','super_admin')
+               on conflict (user_id) do nothing;`);
 
 console.log("\nAn admin of one business cannot touch another — the takeover this closes:");
 await asIn(BEN, t2);
