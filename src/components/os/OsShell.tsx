@@ -368,16 +368,19 @@ function TenantSwitcher({
                 )}
               </button>
             ))}
-            {/* The only route to creating one. A control that lists businesses
-                is where somebody goes looking for the button to add one. */}
-            <Link
-              href="/admin/os/organisations"
-              role="menuitem"
-              onClick={() => setOpen(false)}
-              className="block border-t border-line px-3 py-2 text-sm text-muted hover:bg-surface-2 hover:text-fg"
-            >
-              {canCreateTenant ? "Manage organisations" : "All organisations"}
-            </Link>
+            {/* Out of the business shell entirely. A platform operator needs a
+                surface with no sidebar, no approvals badge and no notification
+                bell, because all three are about one business. */}
+            {canCreateTenant && (
+              <Link
+                href="/admin/platform"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="block border-t border-line px-3 py-2 text-sm text-muted hover:bg-surface-2 hover:text-fg"
+              >
+                Platform console
+              </Link>
+            )}
           </div>
         </>
       )}

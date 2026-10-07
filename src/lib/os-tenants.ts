@@ -108,3 +108,44 @@ export const loadPlatformAdmins = cache(async (): Promise<PlatformAdmin[]> => {
   if (error || !Array.isArray(data)) return [];
   return data as PlatformAdmin[];
 });
+
+/** An administrator of one business, from bos_tenant_admin_list(). */
+export type TenantAdmin = {
+  tenant_id: string;
+  user_id: string;
+  email: string | null;
+  full_name: string | null;
+  role: string;
+  joined_at: string;
+};
+
+export const loadTenantAdmins = cache(async (): Promise<TenantAdmin[]> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("bos_tenant_admin_list");
+  if (error || !Array.isArray(data)) return [];
+  return data as TenantAdmin[];
+});
+
+export type PlatformStats = {
+  tenants?: number;
+  tenants_active?: number;
+  tenants_suspended?: number;
+  members?: number;
+  admins?: number;
+  tenants_without_admin?: number;
+  platform_admins?: number;
+  products?: number;
+};
+
+/**
+ * Counts across every business. Empty for anybody who is not a super admin —
+ * bos_platform_stats returns an empty object rather than raising, so a page
+ * that forgets to guard shows nothing instead of leaking.
+ */
+export const loadPlatformStats = cache(async (): Promise<PlatformStats> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("bos_platform_stats");
+  if (error || !data || typeof data !== "object") return {};
+  const d = data as Record<string, unknown>;
+  return Object.fromEntries(Object.entries(d).map(([k, v]) => [k, Number(v)])) as PlatformStats;
+});

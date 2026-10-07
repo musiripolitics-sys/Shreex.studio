@@ -38,6 +38,14 @@
       "scopedIn": "0047",
       "note": "Added in 0047. Definer because the invitee cannot read tenant_invitations - they present a token and the function looks it up for them. The invitation is to an ADDRESS: signing in as somebody else and presenting the token is refused, so a forwarded link does not hand over a seat."
     },
+    "bos_assign_tenant_admin(p_tenant uuid, p_email text, p_role text)": {
+      "group": "C",
+      "scope": "platform",
+      "returns": "uuid",
+      "setReturning": false,
+      "note": "Appoint somebody to a NAMED business by address without entering it. A deliberate exception to the 0052 rule that a business members are managed from inside it: a business whose only admin is the platform owner cannot be handed over from inside itself, and handing it over is the point of creating one. Super admin only, and logged in the target business for the same reason entering one is. Appointing does NOT widen reading -- the restrictive isolation policies are untouched.",
+      "scopedIn": "0053"
+    },
     "bos_can_access(p_section text)": {
       "group": "B",
       "scope": "caller",
@@ -239,6 +247,14 @@
       "note": "The same test, raising instead of returning, so a caller learns WHICH of NOT_SIGNED_IN, NO_DEFAULT_TENANT and NOT_PLATFORM_OWNER applies. REWRITTEN in 0052: NO_DEFAULT_TENANT replaced by NOT_SUPER_ADMIN.",
       "scopedIn": "0050+0052"
     },
+    "bos_platform_stats()": {
+      "group": "A",
+      "scope": "platform",
+      "returns": "jsonb",
+      "setReturning": false,
+      "note": "Counts across every business for the console header. Returns an empty object rather than raising for anybody who is not a super admin, so a page that forgets to guard shows nothing instead of leaking. tenants_without_admin is the number worth watching: a business in that state cannot appoint one itself.",
+      "scopedIn": "0053"
+    },
     "bos_product_enabled(p_key text)": {
       "group": "B",
       "scope": "tenant",
@@ -385,6 +401,14 @@
       "note": "Explains why a task cannot complete. Reveals the task's state to any caller. SCOPED in 0039: scoped to the tenant.",
       "scopedIn": "0039"
     },
+    "bos_tenant_admin_list()": {
+      "group": "A",
+      "scope": "platform",
+      "returns": "table",
+      "setReturning": true,
+      "note": "The administrators of every business the caller may manage: all of them for a super admin, otherwise only businesses they administer themselves. Crosses tenants on purpose -- a platform console is a view across businesses by definition, the same reason bos_my_tenants does.",
+      "scopedIn": "0053"
+    },
     "bos_tenant_default()": {
       "group": "B",
       "scope": "all",
@@ -418,6 +442,14 @@
       "setReturning": false,
       "note": "Trigger on six governed tables. Writes govern_changes, which must inherit the row's tenant or the history becomes invisible. ADDRESSED in 0045: writes new.tenant_id explicitly. A log row that inherited the REQUEST tenant would be invisible to the business whose record changed, leaving a hole in the history.",
       "scopedIn": "0045"
+    },
+    "bos_unassign_tenant_member(p_tenant uuid, p_user uuid)": {
+      "group": "C",
+      "scope": "platform",
+      "returns": "void",
+      "setReturning": false,
+      "note": "Remove somebody from a named business from the platform console. Same authority and logging as bos_assign_tenant_admin, and the same refusal as bos_remove_member: never the last admin, because only an admin of a business may appoint one.",
+      "scopedIn": "0053"
     },
     "bos_user_directory()": {
       "group": "A",
@@ -788,7 +820,7 @@
       "scopedIn": "0039"
     }
   },
-  "stage5": "COMPLETE. All 75 SECURITY DEFINER functions have been through it. Six carry no tenant reference and all six are deliberate, pinned by name in supabase/tests/tenancy-stage5f.test.mjs: bos_guard_contact_rate and bos_guard_newsletter_rate are scoped through bos_rate_limit whose key carries the tenant; is_employee delegates to bos_is_staff and is_paid_member to is_admin and member_tier; sync_user_email and handle_new_user operate on public.users, which is global by design. A seventh appearing there is a regression. Order taken: A (0038, 0039), E and B together (0040), the claim correction the tests found (0041), C in three pieces (0042, 0043, 0044) and D (0045). Not the order the architecture document gave, because that order assumed FORCE ROW LEVEL SECURITY would close the owner hole at Stage 4 - it cannot here, the owning role carries BYPASSRLS - so the bodies were the only place to close it and A was where rows actually crossed. 0050 adds six more definer functions for creating and managing businesses; bos_rename_tenant is the seventh entry in the stage5f allowlist, and the only one there for a structural reason rather than a delegation: on public.tenants the row id IS the tenant, so a tenant_id predicate cannot exist. It checks bos_tenant_role(p_tenant) instead. 0052 adds six more, all platform-scoped: bos_is_super_admin and its alias and raising form, plus the three that administer platform_admins. None can carry a tenant predicate, because platform authority is not a fact about any business -- a super admin is pinned to ONE business by is_admin and bos_tenant_role, which do carry it. That takes the stage5f allowlist to thirteen.",
+  "stage5": "COMPLETE. All 75 SECURITY DEFINER functions have been through it. Six carry no tenant reference and all six are deliberate, pinned by name in supabase/tests/tenancy-stage5f.test.mjs: bos_guard_contact_rate and bos_guard_newsletter_rate are scoped through bos_rate_limit whose key carries the tenant; is_employee delegates to bos_is_staff and is_paid_member to is_admin and member_tier; sync_user_email and handle_new_user operate on public.users, which is global by design. A seventh appearing there is a regression. Order taken: A (0038, 0039), E and B together (0040), the claim correction the tests found (0041), C in three pieces (0042, 0043, 0044) and D (0045). Not the order the architecture document gave, because that order assumed FORCE ROW LEVEL SECURITY would close the owner hole at Stage 4 - it cannot here, the owning role carries BYPASSRLS - so the bodies were the only place to close it and A was where rows actually crossed. 0050 adds six more definer functions for creating and managing businesses; bos_rename_tenant is the seventh entry in the stage5f allowlist, and the only one there for a structural reason rather than a delegation: on public.tenants the row id IS the tenant, so a tenant_id predicate cannot exist. It checks bos_tenant_role(p_tenant) instead. 0052 adds six more, all platform-scoped: bos_is_super_admin and its alias and raising form, plus the three that administer platform_admins. None can carry a tenant predicate, because platform authority is not a fact about any business -- a super admin is pinned to ONE business by is_admin and bos_tenant_role, which do carry it. That takes the stage5f allowlist to thirteen. 0053 adds four more platform-scoped functions for the console. bos_assign_tenant_admin is the one to read carefully: it widens 0052 by letting a super admin appoint a business administrator without entering the business, because a business whose only admin is the platform owner cannot be handed over from inside itself. Appointing, not reading -- the isolation policies are untouched, and the act is logged in the target business.",
   "noLongerDefiner": {
     "bos_dashboard_summary(p_from date, p_to date)": "DROPPED in 0039. It could not be called: both overloads defaulted every argument, so a two-date call matched the four-argument one too and Postgres refused with \"is not unique\". Both call sites in the app pass four named arguments. Scoping it would have been 97 lines to protect dead code.",
     "bos_dashboard_summary(p_from date, p_to date, p_owner uuid, p_workstream uuid)": "Made SECURITY INVOKER in 0039, so it is no longer in this inventory. It raises FORBIDDEN unless the caller is an admin, and an admin can read all 27 tables it touches, so it never needed to bypass RLS. As an invoker the isolation policies scope all 35 subqueries at once. Verified behaviour-preserving: 66 of 66 keys identical between the two versions, and every table it reads has a permissive SELECT policy an admin satisfies."
