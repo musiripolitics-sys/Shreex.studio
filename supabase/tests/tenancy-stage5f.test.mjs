@@ -170,6 +170,11 @@ const unscoped = await q(`
 const allowed = [
   "bos_guard_contact_rate()",     // via bos_rate_limit, whose key carries the tenant
   "bos_guard_newsletter_rate()",  // same
+  // 0050. The only entry here for a structural reason rather than a
+  // delegation: on public.tenants the row id IS the tenant, so a tenant_id
+  // predicate cannot exist. It checks bos_tenant_role(p_tenant) instead,
+  // which is membership in the NAMED tenant rather than the request one.
+  "bos_rename_tenant(p_tenant uuid, p_name text)",
   "handle_new_user()",            // public.users is global
   "is_employee()",                // delegates to bos_is_staff
   "is_paid_member()",             // delegates to is_admin and member_tier
@@ -178,7 +183,7 @@ const allowed = [
 const got = unscoped.map((r) => r.sig);
 ok(JSON.stringify(got) === JSON.stringify(allowed),
    JSON.stringify(got) === JSON.stringify(allowed)
-     ? `exactly six definer functions carry no tenant reference, and all six are deliberate: ${allowed.map((a) => a.replace("()", "")).join(", ")}`
+     ? `exactly seven definer functions carry no tenant reference, and all seven are deliberate: ${allowed.map((a) => a.replace("()", "")).join(", ")}`
      : `CHANGED — now unscoped: ${got.join(", ")}`);
 
 console.log(`\n${state.pass} passed, ${state.fail} failed`);

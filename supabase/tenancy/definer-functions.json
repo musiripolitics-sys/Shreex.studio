@@ -62,6 +62,14 @@
       "note": "The visibility predicate behind the Plan section. Needs a tenant clause. SCOPED in 0040: predicates on all six branches, and the is_admin short circuit above them is scoped too - which is why B and E had to be done together. CORRECTED in 0046: 0040 scoped every exists() branch and left is_admin() standing alone at the front, so the first branch short-circuited and ANY admin passed for ANY row. An outer tenant gate now requires the row to be in the caller business before any branch is consulted. Found by the Stage 6 isolation test on its first run.",
       "scopedIn": "0046"
     },
+    "bos_create_tenant(p_name text, p_slug text)": {
+      "group": "C",
+      "scope": "platform",
+      "returns": "uuid",
+      "setReturning": false,
+      "note": "Creates a tenant, its first admin membership and its product list. The only way to insert a tenants row: 0050 removed the write policy on that table, so this function is the door and bos_platform_owner_check is the lock. Scope is deliberately platform rather than row -- a new tenant has no tenant to be in.",
+      "scopedIn": "0050"
+    },
     "bos_current_tenant()": {
       "group": "B",
       "scope": "caller",
@@ -119,6 +127,14 @@
       "scopedIn": "0047",
       "note": "Added in 0047. Invites an address to the CALLER business only - the tenant comes from bos_request_tenant, never from an argument. Re-inviting issues a new token, so a link that leaked stops working."
     },
+    "bos_is_platform_owner()": {
+      "group": "E",
+      "scope": "caller",
+      "returns": "boolean",
+      "setReturning": false,
+      "note": "Whether the caller may create a business. Deliberately NOT scoped to bos_request_tenant: creating a tenant is an act above all tenants, so it cannot be authorised by a membership in whichever one the request happens to be about. The rule is admin of the tenant marked is_default.",
+      "scopedIn": "0050"
+    },
     "bos_is_staff()": {
       "group": "E",
       "scope": "caller",
@@ -142,6 +158,14 @@
       "setReturning": false,
       "note": "The nav's source of truth. Becomes per-tenant. SCOPED in 0040: a tenant predicate on the row lookup.",
       "scopedIn": "0040"
+    },
+    "bos_my_tenant_summary()": {
+      "group": "A",
+      "scope": "caller",
+      "returns": "table",
+      "setReturning": true,
+      "note": "Every business the caller belongs to, with member and product counts. Crosses tenants on purpose, like bos_my_tenants, and for the same reason: listing them is what makes switching and management possible. Unlike bos_my_tenants it does not filter on tenant status, because a management page has to show you the business you suspended.",
+      "scopedIn": "0050"
     },
     "bos_my_tenants()": {
       "group": "B",
@@ -175,6 +199,14 @@
       "note": "Trigger. Opens a review row. ADDRESSED in 0045: the review carries the task tenant.",
       "scopedIn": "0045"
     },
+    "bos_platform_owner_check()": {
+      "group": "E",
+      "scope": "caller",
+      "returns": "void",
+      "setReturning": false,
+      "note": "The same test, raising instead of returning, so a caller learns WHICH of NOT_SIGNED_IN, NO_DEFAULT_TENANT and NOT_PLATFORM_OWNER applies.",
+      "scopedIn": "0050"
+    },
     "bos_publish_sop(p_version uuid)": {
       "group": "C",
       "scope": "row",
@@ -190,6 +222,14 @@
       "setReturning": false,
       "note": "Platform infrastructure. Stays global, but the buckets should carry a tenant so one tenant cannot exhaust another's allowance. SCOPED in 0044: the KEY carries the tenant. rate_limits stays a platform table with no tenant_id - the rows are counters, not records - but two businesses sharing an address shared an allowance, so one could be exhausted by the other being spammed.",
       "scopedIn": "0044"
+    },
+    "bos_rename_tenant(p_tenant uuid, p_name text)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "void",
+      "setReturning": false,
+      "note": "Renames a business the caller administers. Checks bos_tenant_role(p_tenant), i.e. membership in the NAMED tenant rather than the request tenant, so managing a business does not require switching into it first. Carries no literal tenant_id because on this table the id IS the tenant, which is why it is pinned in the stage5f allowlist.",
+      "scopedIn": "0050"
     },
     "bos_request_tenant()": {
       "group": "B",
@@ -224,6 +264,14 @@
       "setReturning": false,
       "note": "Grants sections to a user. Must not reach a user outside the caller's tenant. SCOPED in 0042: the delete, the insert and the count are all scoped, and the target must be a member. Without the tenant on the DELETE, revoking a section in one business revoked it in every business the person belonged to.",
       "scopedIn": "0042"
+    },
+    "bos_set_tenant_status(p_tenant uuid, p_status text)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "void",
+      "setReturning": false,
+      "note": "Suspends, archives or reactivates a business the caller administers. Refuses the default tenant, which bos_request_tenant falls back to and therefore may never leave the active set. Clears active_tenant_id for anyone left standing in a tenant that just stopped being active.",
+      "scopedIn": "0050"
     },
     "bos_sop_current(p_sop uuid)": {
       "group": "A",
@@ -660,13 +708,24 @@
       "scopedIn": "0039"
     }
   },
-  "stage5": "COMPLETE. All 75 SECURITY DEFINER functions have been through it. Six carry no tenant reference and all six are deliberate, pinned by name in supabase/tests/tenancy-stage5f.test.mjs: bos_guard_contact_rate and bos_guard_newsletter_rate are scoped through bos_rate_limit whose key carries the tenant; is_employee delegates to bos_is_staff and is_paid_member to is_admin and member_tier; sync_user_email and handle_new_user operate on public.users, which is global by design. A seventh appearing there is a regression. Order taken: A (0038, 0039), E and B together (0040), the claim correction the tests found (0041), C in three pieces (0042, 0043, 0044) and D (0045). Not the order the architecture document gave, because that order assumed FORCE ROW LEVEL SECURITY would close the owner hole at Stage 4 - it cannot here, the owning role carries BYPASSRLS - so the bodies were the only place to close it and A was where rows actually crossed.",
+  "stage5": "COMPLETE. All 75 SECURITY DEFINER functions have been through it. Six carry no tenant reference and all six are deliberate, pinned by name in supabase/tests/tenancy-stage5f.test.mjs: bos_guard_contact_rate and bos_guard_newsletter_rate are scoped through bos_rate_limit whose key carries the tenant; is_employee delegates to bos_is_staff and is_paid_member to is_admin and member_tier; sync_user_email and handle_new_user operate on public.users, which is global by design. A seventh appearing there is a regression. Order taken: A (0038, 0039), E and B together (0040), the claim correction the tests found (0041), C in three pieces (0042, 0043, 0044) and D (0045). Not the order the architecture document gave, because that order assumed FORCE ROW LEVEL SECURITY would close the owner hole at Stage 4 - it cannot here, the owning role carries BYPASSRLS - so the bodies were the only place to close it and A was where rows actually crossed. 0050 adds six more definer functions for creating and managing businesses; bos_rename_tenant is the seventh entry in the stage5f allowlist, and the only one there for a structural reason rather than a delegation: on public.tenants the row id IS the tenant, so a tenant_id predicate cannot exist. It checks bos_tenant_role(p_tenant) instead.",
   "noLongerDefiner": {
     "bos_dashboard_summary(p_from date, p_to date)": "DROPPED in 0039. It could not be called: both overloads defaulted every argument, so a two-date call matched the four-argument one too and Postgres refused with \"is not unique\". Both call sites in the app pass four named arguments. Scoping it would have been 97 lines to protect dead code.",
     "bos_dashboard_summary(p_from date, p_to date, p_owner uuid, p_workstream uuid)": "Made SECURITY INVOKER in 0039, so it is no longer in this inventory. It raises FORBIDDEN unless the caller is an admin, and an admin can read all 27 tables it touches, so it never needed to bypass RLS. As an invoker the isolation policies scope all 35 subqueries at once. Verified behaviour-preserving: 66 of 66 keys identical between the two versions, and every table it reads has a permissive SELECT policy an admin satisfies."
   },
   "securityFindings": {
-    "fulfil_order free tickets (found 7 October 2026, fixed in 0043)": "fulfil_order is executable by anon - verified against production, where an unauthenticated call returned ORDER_NOT_FOUND, meaning the function ran - and it never checked p_payment_id. So create_pending_order followed by fulfil_order(order_id, null) issued tickets for a paid event with no payment. Nothing to do with tenancy; found while rewriting the function for it. 0043 required a paid payment row of at least the order total, in the order tenant, unless the caller is the service role - and said openly that this raised the bar without closing the door, because public.payments let a signed-in person insert their own row with status paid, and UPDATE it afterwards. CLOSED in 0048. Both client-writable policies are dropped; SELECT stays so people can see their own receipts. The three writers are now the two verification routes and the Razorpay webhook, all server-side, all using the service role after checking a signature. The code change had to deploy first, which is safe in that order because the service role bypasses RLS. The test that simulated the legitimate purchase had to start writing its payment as the service role too, which is the clearest evidence the hole is shut."
+    "fulfil_order free tickets (found 7 October 2026, fixed in 0043)": "fulfil_order is executable by anon - verified against production, where an unauthenticated call returned ORDER_NOT_FOUND, meaning the function ran - and it never checked p_payment_id. So create_pending_order followed by fulfil_order(order_id, null) issued tickets for a paid event with no payment. Nothing to do with tenancy; found while rewriting the function for it. 0043 required a paid payment row of at least the order total, in the order tenant, unless the caller is the service role - and said openly that this raised the bar without closing the door, because public.payments let a signed-in person insert their own row with status paid, and UPDATE it afterwards. CLOSED in 0048. Both client-writable policies are dropped; SELECT stays so people can see their own receipts. The three writers are now the two verification routes and the Razorpay webhook, all server-side, all using the service role after checking a signature. The code change had to deploy first, which is safe in that order because the service role bypasses RLS. The test that simulated the legitimate purchase had to start writing its payment as the service role too, which is the clearest evidence the hole is shut.",
+    "tenants-write-policy-admin-short-circuit": {
+      "id": "tenants-write-policy-admin-short-circuit",
+      "found": "0050",
+      "table": "public.tenants",
+      "severity": "cross-tenant write",
+      "what": "The 0034 write policy read using (is_admin() or bos_tenant_role(id) = 'admin'). Since 0047 is_admin() means admin of the tenant THIS REQUEST is about and does not look at id, so an admin of any business satisfied it while writing any other business row.",
+      "verified": "In the PGlite fixture an admin of a second business renamed and suspended the first one, and inserted orphan tenants with no admin member and no product list. DELETE was stopped only by an ON DELETE RESTRICT on a child table, so a business young enough to have no child rows could have been deleted outright.",
+      "whyItSurvived": "tenants is a tenancy table, so it never received a Stage 4 restrictive isolation policy -- those compare tenant_id, and this table has none. Its id is the tenant.",
+      "fix": "0050 drops the write policy entirely and revokes insert, update and delete from authenticated and anon. Every legitimate write now goes through bos_create_tenant, bos_rename_tenant or bos_set_tenant_status, each of which checks membership in the named tenant. The read policy lost the same short-circuit.",
+      "sameClassAs": "0046, which removed the bare is_admin() short-circuit from bos_can_see_task, bos_can_see_goal, can_read_community and community_leads."
+    }
   },
   "stage6": "The cross-tenant isolation assertions, which Stage 0 wrote down as the control that actually prevents the leak and which could not run until a second tenant was possible. They live in supabase/tests/tenancy-stage6.test.mjs: two businesses with deliberately COLLIDING values, every row-spanning function called as an admin of each with the results asserted disjoint, every aggregate asserted to count one business rather than both, and every id-taking function asked about the other business id. It earned its description on the first run. Four predicates - bos_can_see_task, bos_can_see_goal, can_read_community, community_leads - opened with a bare is_admin() disjunct, so an admin of one business could see any row in any business however carefully 0040 had scoped the other branches. 0046 fixes them with an outer tenant gate. It also found a test that was asserting the bug: a stage5c assertion passed a TASK id to bos_can_see_goal and expected true, which only worked because the short circuit meant the lookup never ran."
 }

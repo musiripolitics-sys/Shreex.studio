@@ -33,3 +33,54 @@ export const loadMyTenants = cache(async (): Promise<Tenant[]> => {
   if (error || !Array.isArray(data)) return [];
   return data as Tenant[];
 });
+
+/**
+ * One business, with the two counts the organisations page shows.
+ *
+ * Unlike Tenant this carries status, because the page it feeds has to be
+ * able to show you the business you suspended — a management surface that
+ * hides what it just did to something is not a management surface.
+ */
+export type Organisation = {
+  id: string;
+  slug: string;
+  name: string;
+  status: "active" | "suspended" | "archived";
+  role: string;
+  is_default: boolean;
+  is_active: boolean;
+  member_count: number;
+  product_count: number;
+  created_at: string;
+};
+
+/** Every business the signed-in person belongs to. Empty without 0050. */
+export const loadMyOrganisations = cache(async (): Promise<Organisation[]> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("bos_my_tenant_summary");
+  if (error || !Array.isArray(data)) return [];
+  // The counts arrive as bigint, which PostgREST serialises as a string.
+  return (data as Record<string, unknown>[]).map((r) => ({
+    ...r,
+    member_count: Number(r.member_count ?? 0),
+    product_count: Number(r.product_count ?? 0),
+  })) as Organisation[];
+});
+
+/**
+ * Whether this person may create a business.
+ *
+ * Since 0047 every authority in the OS is per-tenant, which left the
+ * platform itself with no owner — and creating a business is not an act
+ * inside a business. 0050 settles it as admin of the tenant marked
+ * is_default: whoever runs the original business runs the platform.
+ *
+ * Fails closed. A database without 0050 has no such function, and answering
+ * true would show a create form whose submit could only ever fail.
+ */
+export const isPlatformOwner = cache(async (): Promise<boolean> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("bos_is_platform_owner");
+  if (error) return false;
+  return data === true;
+});

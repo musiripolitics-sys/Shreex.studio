@@ -27,6 +27,7 @@ export function OsShell({
   sections,
   productNames = {},
   tenants = [],
+  canCreateTenant = false,
   alertCount = 0,
   approvalCount = 0,
   children,
@@ -46,6 +47,7 @@ export function OsShell({
    * switcher with a single option is a label pretending to be a control.
    */
   tenants?: { id: string; slug: string; name: string; role: string; is_active: boolean }[];
+  canCreateTenant?: boolean;
   alertCount?: number;
   approvalCount?: number;
   children: React.ReactNode;
@@ -223,7 +225,7 @@ export function OsShell({
           </div>
 
           <div className="flex shrink-0 items-center gap-1.5">
-            <TenantSwitcher tenants={tenants} />
+            <TenantSwitcher tenants={tenants} canCreateTenant={canCreateTenant} />
             <GlobalSearch />
             {/* Approvals and reviews are decided by somebody else and land
                 here; without this an employee had no way of hearing about it. */}
@@ -284,19 +286,23 @@ export function OsShell({
 /**
  * Which business you are acting in, and a way to change it.
  *
- * Renders nothing at all when the person belongs to one business or none.
- * Techxfluence is one business today, so for everybody currently using this
- * the switcher is invisible — which is the right appearance for a control
- * with a single option.
+ * Hidden for somebody with one business and no power to make another, which
+ * is the right appearance for a control with a single option and no second
+ * purpose. It is NOT hidden from a platform owner holding one business,
+ * because for them it is also the way to reach the organisations page — and
+ * hiding it was why adding multi-tenancy appeared to change nothing at all
+ * on a single-tenant install.
  */
 function TenantSwitcher({
   tenants,
+  canCreateTenant = false,
 }: {
   tenants: { id: string; slug: string; name: string; role: string; is_active: boolean }[];
+  canCreateTenant?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
-  if (tenants.length < 2) return null;
+  if (tenants.length < 2 && !canCreateTenant) return null;
 
   const active = tenants.find((t) => t.is_active) ?? tenants[0];
 
@@ -362,6 +368,16 @@ function TenantSwitcher({
                 )}
               </button>
             ))}
+            {/* The only route to creating one. A control that lists businesses
+                is where somebody goes looking for the button to add one. */}
+            <Link
+              href="/admin/os/organisations"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              className="block border-t border-line px-3 py-2 text-sm text-muted hover:bg-surface-2 hover:text-fg"
+            >
+              {canCreateTenant ? "Manage organisations" : "All organisations"}
+            </Link>
           </div>
         </>
       )}
