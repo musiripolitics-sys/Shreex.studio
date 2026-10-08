@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
 import { AcceptInvitation } from "./AcceptInvitation";
 
-export const metadata = { title: "Invitation · Techxfluence", robots: { index: false } };
+export const metadata = { title: "Invitation · Shreex", robots: { index: false } };
 
 type Preview = {
   found: boolean;

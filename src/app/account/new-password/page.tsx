@@ -50,7 +50,7 @@ export default function NewPasswordPage() {
         Set a new password
       </h1>
       <p className="mt-2 text-sm text-muted">
-        Choose a new password for your Techxfluence account.
+        Choose a new password for your Shreex account.
       </p>
 
       {done ? (

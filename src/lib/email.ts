@@ -32,7 +32,30 @@ import nodemailer, { type Transporter } from "nodemailer";
 const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://techxfluence.com";
 
 const FROM =
-  process.env.EMAIL_FROM || process.env.SMTP_USER || "Techxfluence";
+  process.env.EMAIL_FROM || process.env.SMTP_USER || "Shreex";
+
+/**
+ * The name these emails sign themselves with.
+ *
+ * It was the literal string "Techxfluence" in six places, so every email this
+ * platform sent claimed to be from one of the businesses running on it — an
+ * employee at Jilo was welcomed to "your Techxfluence Shreex account", under a
+ * footer reading "© Techxfluence · Chennai, India".
+ *
+ * Derived from EMAIL_FROM's display name so a deployment names itself once, in
+ * the place it already configures the sender. "Shreex <admin@example.com>"
+ * gives "Shreex"; a bare address gives the fallback rather than an email
+ * address in the middle of a sentence.
+ *
+ * This is still per-DEPLOYMENT, not per-business. An invitation to Jilo should
+ * eventually be signed by Jilo, which needs the tenant threaded through every
+ * send — the same change HostDrawer already made for its one template.
+ */
+const BRAND = (() => {
+  const m = /^\s*"?([^"<]+?)"?\s*</.exec(FROM);
+  const name = m?.[1]?.trim();
+  return name && !name.includes("@") ? name : "Shreex";
+})();
 
 let _transporter: Transporter | null = null;
 function getTransporter(): Transporter | null {
@@ -78,7 +101,7 @@ function shell(heading: string, bodyHtml: string): string {
           ${bodyHtml}
         </td></tr>
       </table>
-      <p style="margin:18px 0 0;font-size:12px;color:#8a897f;">© Techxfluence · Chennai, India</p>
+      <p style="margin:18px 0 0;font-size:12px;color:#8a897f;">© ${BRAND}</p>
     </td></tr>
   </table>`;
 }
@@ -557,10 +580,10 @@ export async function sendEmployeeWelcome(opts: {
   const site = SITE;
   await send(
     opts.to,
-    "Your Techxfluence Shreex account is ready",
+    `Your ${BRAND} account is ready`,
     shell(
       "Welcome to the team 👋",
-      `Hi ${opts.name}, your account for the Techxfluence Shreex is ready${
+      `Hi ${opts.name}, your account for ${BRAND} is ready${
         opts.title ? `, as <strong>${opts.title}</strong>` : ""
       }.
        ${
@@ -620,7 +643,7 @@ export async function sendNewsletterWelcome(opts: { to: string }): Promise<void>
   const site = SITE;
   await send(
     opts.to,
-    "You're subscribed to Techxfluence",
+    `You are subscribed to ${BRAND}`,
     shell(
       "You're on the list 📬",
       `Thanks for subscribing. You will hear from us when there is something
@@ -704,7 +727,7 @@ export async function sendHostMessage(opts: {
       `<div style="white-space:normal;">${safe}</div>
        ${
          opts.senderName
-           ? `<p style="margin:18px 0 0;font-size:13px;color:#8a897f;">Sent by ${opts.senderName} at Techxfluence.</p>`
+           ? `<p style="margin:18px 0 0;font-size:13px;color:#8a897f;">Sent by ${opts.senderName} at ${BRAND}.</p>`
            : ""
        }`,
     ),
