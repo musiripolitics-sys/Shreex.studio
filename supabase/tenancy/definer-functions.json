@@ -385,6 +385,14 @@
       "note": "Grants sections to a user. Must not reach a user outside the caller's tenant. SCOPED in 0042: the delete, the insert and the count are all scoped, and the target must be a member. Without the tenant on the DELETE, revoking a section in one business revoked it in every business the person belonged to.",
       "scopedIn": "0042"
     },
+    "bos_set_task_sprint(p_task uuid, p_sprint uuid)": {
+      "group": "C",
+      "scope": "tenant",
+      "returns": "void",
+      "setReturning": false,
+      "note": "Move a story between the backlog and a sprint. Staff of the request tenant, because refinement is the team deciding what the week contains rather than an edit of somebody else's task -- widening the owner-update policy instead would have handed every employee their colleagues' estimates, statuses and due dates. Both ids are checked against the request tenant, which is the check a policy would have made and a definer function skips. Added after an end-to-end walk found the Pull in button silently updating zero rows.",
+      "scopedIn": "0058"
+    },
     "bos_set_tenant_product(p_key text, p_enabled boolean)": {
       "group": "C",
       "scope": "tenant",

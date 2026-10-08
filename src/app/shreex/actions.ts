@@ -1630,11 +1630,21 @@ export async function setTaskSprint(taskId: string, sprintId: string | null) {
   const gate = await requireStaff();
   if ("error" in gate) return gate;
 
+  // Through an RPC, not a plain update. The policies on tasks let an employee
+  // update only a task they OWN, and a backlog story usually has no owner — so
+  // the direct update silently changed nothing and the button looked broken.
   const supabase = await createClient();
-  const { error } = await supabase.from("tasks").update({ sprint_id: sprintId }).eq("id", taskId);
+  const { error } = await supabase.rpc("bos_set_task_sprint", {
+    p_task: taskId,
+    p_sprint: sprintId,
+  });
   if (error) {
-    if (error.message.includes("sprint_id")) return { error: "Run migration 0056 in Supabase first." };
-    return { error: error.message };
+    const m = error.message;
+    if (m.includes("bos_set_task_sprint")) return { error: "Run migration 0058 in Supabase first." };
+    if (m.includes("FORBIDDEN")) return { error: "Only staff can change the sprint." };
+    if (m.includes("NO_SUCH_TASK")) return { error: "That story is not in this business." };
+    if (m.includes("NO_SUCH_SPRINT")) return { error: "That sprint is not in this business." };
+    return { error: m };
   }
   revalidatePath(OS, "layout");
   return { success: true };
