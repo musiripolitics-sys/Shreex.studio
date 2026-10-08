@@ -83,8 +83,8 @@
       "scope": "platform",
       "returns": "jsonb",
       "setReturning": false,
-      "note": "Create a business with the products it needs and the administrator who runs it. p_products null means every enabled product and an empty array means none -- different instructions, which is why the form sends a hidden flag to tell them apart. The creator becomes admin only when none is named: that default is how the platform owner ended up administering Techxfluence, and naming one is what stops it, while a business with no admin at all cannot appoint one itself. Returns jsonb since 0055 because \"created, and here is the invitation link\" does not fit in a uuid. Each signature change dropped the previous one rather than overloading, since PostgREST resolves by argument name and two overloads would be ambiguous.",
-      "scopedIn": "0050+0054+0055"
+      "note": "Create a business with the products it needs and the administrator who runs it. p_products null means every enabled product and an empty array means none -- different instructions, which is why the form sends a hidden flag to tell them apart. The creator becomes admin only when none is named: that default is how the platform owner ended up administering Techxfluence, and naming one is what stops it, while a business with no admin at all cannot appoint one itself. Returns jsonb since 0055 because \"created, and here is the invitation link\" does not fit in a uuid. Each signature change dropped the previous one rather than overloading, since PostgREST resolves by argument name and two overloads would be ambiguous. 0057 adds the catalogue seeding, so a new business opens with a roadmap spine rather than an empty one.",
+      "scopedIn": "0050+0054+0055+0057"
     },
     "bos_current_sprint()": {
       "group": "B",
@@ -351,6 +351,14 @@
       "setReturning": false,
       "note": "Per-section counts for the nav. Counts would include other tenants' rows. SCOPED in 0039: a tenant predicate in each of the five dynamic queries. Kept definer because it is gated on bos_is_staff, and as an invoker an employee counts would shrink to what they can read, which is a different number from the one the nav asks for.",
       "scopedIn": "0039"
+    },
+    "bos_seed_tenant_catalogues(p_tenant uuid)": {
+      "group": "C",
+      "scope": "row",
+      "returns": "jsonb",
+      "setReturning": false,
+      "note": "Copy workstreams, email templates, badges and community gates from the default tenant into a named one. Those four were seeded by migrations 0007 and 0027 directly into whichever tenant existed at the time, so every business created since opened with an empty roadmap and no templates -- nothing errored, it just looked like a product that does not work. Copies from the default tenant rather than re-listing rows, so the seed cannot drift from what the first business has. Super admin, or an admin of the target.",
+      "scopedIn": "0057"
     },
     "bos_seed_tenant_membership()": {
       "group": "D",
@@ -920,6 +928,16 @@
       "verified": "A Jilo admin renamed TFX Service in the fixture.",
       "fix": "if not bos_is_super_admin() and bos_tenant_role(p_tenant) is distinct from 'admin' then raise. Introduced and caught inside 0052; it never shipped.",
       "note": "0050 used IS DISTINCT FROM correctly. Adding the super admin branch as an OR is what reintroduced the NULL."
+    },
+    "community-gates-unscoped-pkey": {
+      "found": "0057",
+      "table": "public.community_gates",
+      "severity": "isolation unusable",
+      "what": "PRIMARY KEY (action), not scoped to a tenant. Only one business on the platform could define a gate for a given action; the second got a primary key violation. The table carries tenant_id and a restrictive isolation policy, and its key made that isolation impossible to use.",
+      "whyItSurvived": "0036 swept twenty-one narrow UNIQUE constraints into tenant-scoped ones. This is a PRIMARY KEY, which was not in that sweep, and the unique-constraint guard reads pg_constraint for contype 'u'.",
+      "verified": "Seeding a second business failed on community_gates_pkey.",
+      "fix": "0057 widens it to (tenant_id, action). Nothing references it: no foreign key points at community_gates, and meets_gate looks rows up by action AND tenant.",
+      "foundBy": "creating real test data in a second business, not by reading"
     }
   },
   "stage6": "The cross-tenant isolation assertions, which Stage 0 wrote down as the control that actually prevents the leak and which could not run until a second tenant was possible. They live in supabase/tests/tenancy-stage6.test.mjs: two businesses with deliberately COLLIDING values, every row-spanning function called as an admin of each with the results asserted disjoint, every aggregate asserted to count one business rather than both, and every id-taking function asked about the other business id. It earned its description on the first run. Four predicates - bos_can_see_task, bos_can_see_goal, can_read_community, community_leads - opened with a bare is_admin() disjunct, so an admin of one business could see any row in any business however carefully 0040 had scoped the other branches. 0046 fixes them with an outer tenant gate. It also found a test that was asserting the bug: a stage5c assertion passed a TASK id to bos_can_see_goal and expected true, which only worked because the short circuit meant the lookup never ran."

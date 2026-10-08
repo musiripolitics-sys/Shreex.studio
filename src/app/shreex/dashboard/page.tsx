@@ -24,7 +24,7 @@ import {
   type DashboardSummary,
 } from "@/lib/bos";
 
-export const metadata = { title: "Executive Dashboard · Shreex" };
+export const metadata = { title: "Dashboard · Shreex" };
 
 type SP = Promise<Record<string, string | string[] | undefined>>;
 const isoYearStart = () => `${new Date().getFullYear()}-01-01`;
@@ -127,7 +127,7 @@ export default async function ExecutiveDashboard({ searchParams }: { searchParam
   if (error) {
     return (
       <>
-        <Header {...filterProps} />
+        <PageHead title="Dashboard" actions={<DashboardFilters {...filterProps} />} />
         <EmptyState
           title="Dashboard couldn't load"
           hint={error.message.includes("bos_dashboard_summary")
@@ -320,6 +320,12 @@ export default async function ExecutiveDashboard({ searchParams }: { searchParam
 
   // Overdue items carry a day count; blocked and waiting ones do not. That is
   // the only split the queues need, and it falls out of the data for free.
+  // Written out rather than toLocaleDateString(): this is a server component,
+  // but the same call in a client one renders differently on each side and
+  // throws the tree away. One habit, everywhere.
+  const now = new Date();
+  const todayLabel = `${["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][now.getDay()]} ${now.getDate()} ${["January","February","March","April","May","June","July","August","September","October","November","December"][now.getMonth()]}`;
+
   const late = attention.filter((a) => a.daysLate != null && a.daysLate > 0);
   const stuck = attention.filter((a) => a.daysLate == null || a.daysLate <= 0);
 
@@ -341,7 +347,11 @@ export default async function ExecutiveDashboard({ searchParams }: { searchParam
 
   return (
     <>
-      <PageHead title="Today" actions={<Header {...filterProps} />} />
+      <PageHead
+        title="Dashboard"
+        context={todayLabel}
+        actions={<DashboardFilters {...filterProps} />}
+      />
 
       {/*
         Four numbers, and every one implies an action. This replaced four
@@ -576,20 +586,4 @@ async function MyDashboard() {
   );
 }
 
-type HeaderProps = React.ComponentProps<typeof DashboardFilters>;
 
-function Header(props: HeaderProps) {
-  return (
-    <div>
-      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-        <h1 className="font-display text-2xl font-bold tracking-tight text-fg">Executive Dashboard</h1>
-        <p className="text-xs text-muted">Shreex</p>
-      </div>
-      <p className="mb-4 max-w-2xl text-sm text-muted">
-        What is late, the four numbers worth checking daily, and the state of every
-        section. Each card opens the detail behind it.
-      </p>
-      <DashboardFilters {...props} />
-    </div>
-  );
-}
