@@ -32,23 +32,41 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const unread = items.filter((i) => !i.read).length;
 
-  const load = useCallback(async () => {
-    const { data } = await supabase
+  // Returns the rows rather than setting state, so the effect below decides
+  // whether the component is still around to receive them.
+  const load = useCallback(async (): Promise<Notif[] | null> => {
+    const { data, error } = await supabase
       .from("notifications")
       .select("*")
       .order("created_at", { ascending: false })
       .limit(20);
-    setItems((data as Notif[]) ?? []);
+    if (error) return null;
+    return (data as Notif[]) ?? [];
   }, [supabase]);
 
   useEffect(() => {
-    load();
+    // Guarded against a response arriving after the bell has unmounted, which
+    // is a setState on a dead component, and written so the effect itself does
+    // nothing synchronously — the lint rule is about cascading renders, and an
+    // effect whose body only schedules work cannot cause one.
+    let live = true;
+    void (async () => {
+      const rows = await load();
+      if (live && rows) setItems(rows);
+    })();
+    return () => { live = false; };
   }, [load]);
 
   const toggle = async () => {
     const next = !open;
     setOpen(next);
-    if (next) await load();
+    // load() returns rows now rather than setting state, so opening the bell
+    // has to apply them itself — missing this would have left the panel
+    // showing whatever it had at mount.
+    if (next) {
+      const rows = await load();
+      if (rows) setItems(rows);
+    }
   };
 
   const markAll = async () => {

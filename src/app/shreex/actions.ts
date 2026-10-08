@@ -19,6 +19,24 @@ import { getCurrentUser, isAdmin } from "@/lib/auth";
 
 type SupabaseServer = Awaited<ReturnType<typeof createClient>>;
 
+/**
+ * Staff, not admin.
+ *
+ * Planning a sprint, writing a retro note and pulling a story in are things
+ * the people doing the work do. Gating them on admin would mean the week can
+ * only be planned by somebody who is not in it, which is how a ceremony turns
+ * into paperwork. Closing the week stays admin, because it moves everybody
+ * else's unfinished work.
+ */
+async function requireStaff() {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not signed in" } as const;
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("bos_is_staff");
+  if (error || data !== true) return { error: "Staff only" } as const;
+  return { user } as const;
+}
+
 async function requireAdmin() {
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" as const };
@@ -1498,5 +1516,126 @@ export async function updateTenantProfile(formData: FormData) {
   }
 
   revalidatePath("/shreex/platform");
+  return { success: true };
+}
+
+// ─────────────────────────── Sprints ───────────────────────────
+
+/**
+ * Start this week, or return the sprint that already covers it.
+ *
+ * Idempotent in the database, so a double click costs nothing and two people
+ * pressing it at once get the same sprint rather than two.
+ */
+export async function startSprint(dateISO?: string) {
+  const gate = await requireStaff();
+  if ("error" in gate) return gate;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("bos_ensure_sprint", {
+    p_date: dateISO ?? null,
+  });
+  if (error) {
+    if (error.message.includes("bos_ensure_sprint")) return { error: "Run migration 0056 in Supabase first." };
+    if (error.message.includes("NO_TENANT")) return { error: "No business to plan a sprint for." };
+    if (error.message.includes("FORBIDDEN")) return { error: "Only staff can plan a sprint." };
+    return { error: error.message };
+  }
+  revalidatePath(OS, "layout");
+  return { success: true, id: data as string };
+}
+
+/** Close the week. Everything unfinished moves to the next sprint. */
+export async function closeSprint(sprintId?: string) {
+  const gate = await requireAdmin();
+  if ("error" in gate) return gate;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("bos_close_sprint", {
+    p_sprint: sprintId ?? null,
+  });
+  if (error) {
+    const m = error.message;
+    if (m.includes("bos_close_sprint")) return { error: "Run migration 0056 in Supabase first." };
+    if (m.includes("ALREADY_CLOSED")) return { error: "That sprint is already closed." };
+    if (m.includes("NO_SPRINT")) return { error: "There is no sprint to close." };
+    if (m.includes("FORBIDDEN")) return { error: "Only an admin can close the week." };
+    return { error: m };
+  }
+  revalidatePath(OS, "layout");
+  const r = (data ?? {}) as { carried_out?: number; next?: string };
+  return { success: true, carried: Number(r.carried_out ?? 0), next: r.next ?? null };
+}
+
+/** The one line that says what this week is for. */
+export async function setSprintGoal(sprintId: string, goal: string) {
+  const gate = await requireStaff();
+  if ("error" in gate) return gate;
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("sprints")
+    .update({ goal: goal.trim() || null })
+    .eq("id", sprintId);
+  if (error) return { error: error.message };
+  revalidatePath(OS, "layout");
+  return { success: true };
+}
+
+/**
+ * Record what was said at a ceremony.
+ *
+ * retro_action is the kind that earns the meeting: a retrospective producing
+ * no action is a conversation, and keeping actions separate is what makes
+ * "did we do anything about it" answerable next week.
+ */
+export async function addSprintNote(formData: FormData) {
+  const gate = await requireStaff();
+  if ("error" in gate) return gate;
+
+  const sprintId = String(formData.get("sprintId") ?? "");
+  const kind = String(formData.get("kind") ?? "");
+  const body = String(formData.get("body") ?? "").trim();
+  if (!body) return { error: "Write something first." };
+  if (!["refinement", "review", "retro_good", "retro_bad", "retro_action"].includes(kind)) {
+    return { error: `"${kind}" is not a kind of note.` };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("sprint_notes")
+    .insert({ sprint_id: sprintId, kind, body, author_id: gate.user.id });
+  if (error) {
+    if (error.message.includes("sprint_notes")) return { error: "Run migration 0056 in Supabase first." };
+    return { error: error.message };
+  }
+  revalidatePath(`${OS}/sprint`);
+  return { success: true };
+}
+
+/** Remove a ceremony note. */
+export async function deleteSprintNote(id: string) {
+  const gate = await requireStaff();
+  if ("error" in gate) return gate;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("sprint_notes").delete().eq("id", id);
+  if (error) return { error: error.message };
+  revalidatePath(`${OS}/sprint`);
+  return { success: true };
+}
+
+/** Pull a story into this sprint, or push it back to the backlog. */
+export async function setTaskSprint(taskId: string, sprintId: string | null) {
+  const gate = await requireStaff();
+  if ("error" in gate) return gate;
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("tasks").update({ sprint_id: sprintId }).eq("id", taskId);
+  if (error) {
+    if (error.message.includes("sprint_id")) return { error: "Run migration 0056 in Supabase first." };
+    return { error: error.message };
+  }
+  revalidatePath(OS, "layout");
   return { success: true };
 }

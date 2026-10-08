@@ -1,9 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { readTasks } from "@/lib/os-tasks";
+import Link from "next/link";
 import { EmptyState } from "@/components/os/ui";
 import {
   PageHead, StatStrip, Stat, Queue, Row, ProductList, ProductRow, Split,
 } from "@/components/os/dense";
+import { loadSprint } from "@/lib/os-sprints";
 import { DashboardFilters } from "@/components/os/DashboardFilters";
 import type { AttentionItem } from "@/components/os/AttentionBand";
 import type { SectionCard } from "@/components/os/SectionOverview";
@@ -321,6 +323,22 @@ export default async function ExecutiveDashboard({ searchParams }: { searchParam
   const late = attention.filter((a) => a.daysLate != null && a.daysLate > 0);
   const stuck = attention.filter((a) => a.daysLate == null || a.daysLate <= 0);
 
+  // The week, first. Everything else on this page is a view across time; the
+  // sprint is the thing anybody is actually inside right now.
+  const sprint = await loadSprint();
+  const burnPct = (sprint.committed_hours ?? 0) > 0
+    ? Math.round(((sprint.done_hours ?? 0) / (sprint.committed_hours ?? 1)) * 100) : 0;
+  const clockPct = Math.round((Math.min(sprint.day ?? 1, 5) / 5) * 100);
+  // Red when it cannot finish, amber when drifting, green when the burn is
+  // ahead of the clock. Against the clock rather than the raw percentage: day
+  // 4 of 5 with half the hours left is trouble whatever "50%" suggests.
+  const sprintTone: "good" | "warn" | "bad" =
+    !sprint.sprint ? "warn"
+    : (sprint.blocked ?? 0) > 0 ? "bad"
+    : (sprint.committed_hours ?? 0) === 0 ? "warn"
+    : burnPct >= clockPct ? "good"
+    : clockPct - burnPct > 25 ? "bad" : "warn";
+
   return (
     <>
       <PageHead title="Today" actions={<Header {...filterProps} />} />
@@ -332,6 +350,52 @@ export default async function ExecutiveDashboard({ searchParams }: { searchParam
         Net cash and member counts moved to the right rail -- worth knowing,
         not a thing to do today.
       */}
+      {/*
+        The sprint band. A business running on one-week sprints has one
+        question before any other: can this week still land. The four numbers
+        below are the month; this is the week.
+      */}
+      <div className="mb-4 overflow-hidden rounded-lg border border-line bg-surface">
+        {sprint.sprint ? (
+          <Link href="/shreex/sprint" className="block px-3.5 py-2.5 transition-colors hover:bg-surface-2">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <span className="flex items-baseline gap-2">
+                <span className={`inline-block h-2 w-2 shrink-0 translate-y-[-1px] rounded-full ${
+                  sprintTone === "bad" ? "bg-red-500" : sprintTone === "warn" ? "bg-amber-500" : "bg-emerald-500"}`} />
+                <span className="text-[13px] font-semibold text-fg">Sprint {sprint.number}</span>
+                <span className="text-[12px] text-faint">day {sprint.day} of 7</span>
+              </span>
+              <span className="text-[12px] text-muted">
+                {sprint.done ?? 0}/{sprint.stories ?? 0} stories · {sprint.done_hours ?? 0}h of {sprint.committed_hours ?? 0}h
+                {(sprint.blocked ?? 0) > 0 && <span className="text-red-700"> · {sprint.blocked} blocked</span>}
+                {(sprint.unestimated ?? 0) > 0 && <span className="text-amber-700"> · {sprint.unestimated} unsized</span>}
+              </span>
+            </div>
+            {sprint.goal && <p className="mt-1 truncate text-[12px] text-muted">{sprint.goal}</p>}
+            {/* Burn against the clock, as one bar. The clock marker is what
+                makes the bar mean something: 60% done on day 2 and 60% done on
+                day 5 are not the same week. */}
+            <div className="relative mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
+              <div
+                className={`h-full rounded-full ${
+                  sprintTone === "bad" ? "bg-red-500" : sprintTone === "warn" ? "bg-amber-500" : "bg-emerald-500"}`}
+                style={{ width: `${Math.min(burnPct, 100)}%` }}
+              />
+              <span
+                className="absolute top-[-2px] h-[10px] w-px bg-fg/50"
+                style={{ left: `${Math.min(clockPct, 100)}%` }}
+                aria-hidden
+              />
+            </div>
+          </Link>
+        ) : (
+          <Link href="/shreex/sprint" className="block px-3.5 py-2.5 text-[13px] transition-colors hover:bg-surface-2">
+            <span className="font-medium text-fg">This week has not been planned.</span>
+            <span className="ml-1.5 text-[12px] text-muted">Start the sprint →</span>
+          </Link>
+        )}
+      </div>
+
       <StatStrip>
         <Stat
           label="Overdue"

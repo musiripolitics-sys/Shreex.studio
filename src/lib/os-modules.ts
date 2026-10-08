@@ -779,6 +779,7 @@ export const OS_SECTIONS: NavSection[] = [
     label: "Plan",
     icon: "rocket",
     items: [
+      { href: "/shreex/sprint", label: "Sprint", icon: "rocket" },
       { href: "/shreex/roadmap", label: "Roadmap", icon: "rocket" },
       { href: "/shreex/tasks", label: "Tasks", icon: "check" },
       m("dependencies"),
